@@ -40,6 +40,7 @@
       markdown = [./modules/variants/markdown.nix];
       default = [./modules/variants/default.nix];
       maximal = [./modules/variants/maximal.nix];
+      org = [./modules/variants/org.nix];
     };
 
     mkNeovim = system: extraModules:
