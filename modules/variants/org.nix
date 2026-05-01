@@ -56,6 +56,11 @@ let
       cp -r . $out
       runHook postInstall
     '';
+    # refile_heading.lua uses orgmode.parser.files which was removed in newer
+    # nvim-orgmode. We only use search_headings so drop the broken export.
+    postInstall = ''
+      sed -i '/refile_heading/d' $out/lua/telescope/_extensions/orgmode/init.lua
+    '';
   };
 in
 {
