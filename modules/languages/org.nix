@@ -6,15 +6,17 @@
 # future additions (custom ftplugin, lint) have a clear home.
 #
 # Grammar notes:
-#   pkgs.tree-sitter-grammars.tree-sitter-org-nvim ships the parser as a
-#   file literally named "parser" (no extension), which is the standard raw
-#   tree-sitter grammar format expected by pkgs.neovimUtils.grammarToPlugin.
+#   pkgs.tree-sitter-grammars.tree-sitter-org-nvim (nixpkgs) ships an
+#   outdated emiasims/tree-sitter-org grammar (v1.3.1, 2023) that is
+#   incompatible with nvim-orgmode ≥ 0.7.x in two ways:
+#     1. It lacks the "inline_code_block" node type that orgmode's queries
+#        require, causing a query error when any org buffer is opened.
+#     2. Neovim 0.12+ requires tree-sitter ABI 15; the nixpkgs package
+#        compiled to ABI 14.
 #
-#   grammarToPlugin derives the language name via:
-#     lib.getName "tree-sitter-org-grammar"  →  "tree-sitter-org-grammar"
-#     removeSuffix "-grammar"                →  "tree-sitter-org"
-#     removePrefix "tree-sitter-"            →  "org"
-#   …producing parser/org.so — exactly what Neovim and nvim-orgmode expect.
+#   We build the correct grammar from the official nvim-orgmode/tree-sitter-org
+#   repo using pkgs.tree-sitter.buildGrammar, which compiles with the current
+#   tree-sitter headers (0.25+, ABI 15) and the correct node-type set.
 #
 # Startup timing:
 #   nvim-treesitter-grammars (containing parser/org.so) is a pack/start plugin.
@@ -30,15 +32,25 @@
 #   a second runtimepath entry, so no duplicate warning fires.
 { pkgs, lib, ... }:
 let
-  # Raw tree-sitter grammar format: $out/parser is a symlink to the .so FILE.
-  orgGrammarRaw = pkgs.stdenv.mkDerivation {
-    pname = "tree-sitter-org-grammar";
-    version = pkgs.tree-sitter-grammars.tree-sitter-org-nvim.version;
-    dontUnpack = true;
-    installPhase = ''
-      mkdir $out
-      ln -s ${pkgs.tree-sitter-grammars.tree-sitter-org-nvim}/parser $out/parser
-    '';
+  # Build the correct tree-sitter-org grammar from nvim-orgmode/tree-sitter-org.
+  # The nixpkgs tree-sitter-grammars.tree-sitter-org-nvim is outdated (emiasims
+  # fork, v1.3.1, 2023) and lacks node types required by nvim-orgmode's queries.
+  #
+  # pkgs.tree-sitter.buildGrammar compiles parser.c with the current tree-sitter
+  # headers (0.25+) and produces an ABI-15 .so compatible with Neovim 0.12+.
+  #
+  # To update: nix-prefetch-url --unpack \
+  #   https://github.com/nvim-orgmode/tree-sitter-org/archive/refs/tags/<ver>.tar.gz
+  # then: nix hash to-sri --type sha256 <result>
+  orgGrammarRaw = pkgs.tree-sitter.buildGrammar {
+    language = "org";
+    version = "2.0.2";
+    src = pkgs.fetchFromGitHub {
+      owner = "nvim-orgmode";
+      repo = "tree-sitter-org";
+      rev = "2.0.2";
+      hash = "sha256-tChVcd4YDA9Sec2r/QLhsoNENOTS2Tjr6jsBR1VFHOc=";
+    };
   };
 
   # Vim-plugin format: parser/org.so → the .so file.
