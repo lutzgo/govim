@@ -39,9 +39,11 @@
 # Requires pinentry-curses (or a TTY-compatible pinentry) for terminal use.
 # ─────────────────────────────────────────────────────────────────────────
 #
-# Keybinding conventions (must not conflict with common.nix):
-#   <leader>o*  org-mode actions  (agenda, capture, store-link, search)
-#   <leader>r*  roam actions      (configured via bindings.prefix = "<leader>r")
+# Keybinding namespace (all under <leader>o, sub-grouped by second letter):
+#   <leader>oj*  Journal / Dailies   <leader>on*  Nodes / Roam
+#   <leader>oa*  Agenda              <leader>oc*  Capture
+#   <leader>os*  Search              <leader>ol*  Lists / Clock
+#   ,*           In-buffer (localleader, org files only)
 #
 # NOT enabled: org-babel execution (security risk).
 # NOT enabled in any other variant: nvim-orgmode (org-only).
@@ -203,31 +205,23 @@ in
       };
 
       # org-roam: daily notes, backlinks, node IDs.
-      # Keybindings expand the prefix "<leader>r":
-      #   <leader>rf  find node     <leader>ri  insert node
-      #   <leader>rc  capture       <leader>rl  toggle backlinks
-      #   <leader>rd  goto today    <leader>rD  capture today
-      #   <leader>ry  goto yesterday <leader>rt  goto tomorrow
+      # All built-in keybindings are disabled (bindings = false); every
+      # keymap is registered explicitly in vim.keymaps below so they live
+      # in the unified <leader>o* namespace alongside orgmode's own keys.
       org-roam = {
         package = pkgs.vimPlugins.org-roam-nvim;
         after   = ["sqlite-lua"];
         setup   = ''
           require('org-roam').setup({
             directory = vim.fn.expand('~/citizengo/notes/pages/'),
-            bindings = {
-              prefix             = '<leader>r',
-              find_node          = '<prefix>f',
-              insert_node        = '<prefix>i',
-              capture            = '<prefix>c',
-              toggle_roam_buffer = '<prefix>l',
-            },
+            bindings  = false,   -- all keymaps registered manually
             extensions = {
               dailies = {
-                -- Relative to directory above; vim.fs.normalize resolves ../
+                -- Relative to pages/; vim.fs.normalize resolves ../
                 -- → ~/citizengo/notes/journal/
                 directory = '../journal',
-                -- capture_today (<leader>rD) uses this template.
-                -- goto_today (<leader>rd) creates a bare buffer; the
+                -- capture_today (<leader>ojc) uses this template.
+                -- goto_today   (<leader>ojj) creates a bare buffer;
                 -- org-daily-scaffold autocmd (luaConfigRC) adds sections.
                 templates = {
                   d = {
@@ -235,22 +229,6 @@ in
                     template    = '** %?\n   %U',
                     target      = '%<%Y-%m-%d>.org',
                   },
-                },
-                bindings  = {
-                  goto_today     = '<prefix>d',
-                  goto_yesterday = '<prefix>y',
-                  goto_tomorrow  = '<prefix>t',
-                  capture_today  = '<prefix>D',
-                  -- Disable every default binding that begins with <prefix>d
-                  -- to prevent Neovim / which-key from stalling on <prefix>d
-                  -- while it waits to see whether more keys follow.
-                  goto_date       = false,
-                  goto_next_date  = false,
-                  goto_prev_date  = false,
-                  capture_date    = false,
-                  capture_yesterday = false,
-                  capture_tomorrow  = false,
-                  find_directory    = false,
                 },
               },
             },
@@ -275,19 +253,11 @@ in
         '';
       };
 
-      # headlines: highlight bands behind each heading level.
+      # headlines: loaded but org highlighting disabled — the background
+      # bands are distracting in a dark-theme prose workflow.
       headlines-nvim = {
         package = pkgs.vimPlugins.headlines-nvim;
-        setup   = ''
-          require('headlines').setup({
-            org = {
-              headline_highlights = {
-                'Headline1', 'Headline2', 'Headline3',
-                'Headline4', 'Headline5', 'Headline6',
-              },
-            },
-          })
-        '';
+        setup   = "require('headlines').setup({ org = false })";
       };
 
       # org-super-agenda: group agenda view by tag, priority, date, etc.
@@ -383,6 +353,58 @@ in
       })
     '';
 
+    # ── which-key group labels ─────────────────────────────────────────
+    # Register prefix descriptions so which-key shows meaningful group names
+    # instead of raw key characters when you press <leader>o.
+    luaConfigRC."org-whichkey" = lib.nvim.dag.entryAnywhere ''
+      local ok, wk = pcall(require, 'which-key')
+      if ok then
+        wk.add({
+          { "<leader>o",   group = "Org" },
+          { "<leader>oj",  group = "Journal / Dailies" },
+          { "<leader>on",  group = "Nodes / Roam" },
+          { "<leader>oc",  group = "Capture" },
+          { "<leader>oa",  group = "Agenda" },
+          { "<leader>os",  group = "Search" },
+          { "<leader>ol",  group = "Clock / Lists" },
+        })
+      end
+    '';
+
+    # ── In-buffer localleader keymaps (org files only) ─────────────────
+    # These use localleader (,) instead of <leader> to avoid cluttering
+    # the global namespace.  They are buffer-local and only active in
+    # org filetypes.
+    luaConfigRC."org-buffer-keymaps" = lib.nvim.dag.entryAnywhere ''
+      vim.api.nvim_create_autocmd('FileType', {
+        group   = vim.api.nvim_create_augroup('org_buffer_keymaps', { clear = true }),
+        pattern = 'org',
+        callback = function(ev)
+          local buf = ev.buf
+          local function bkm(lhs, action, desc)
+            vim.keymap.set('n', lhs, action, { buffer = buf, silent = true, desc = desc })
+          end
+          -- State transitions
+          bkm(',t',  function() require('orgmode').action('mappings.todo_next_state') end,  "TODO: cycle next state")
+          bkm(',T',  function() require('orgmode').action('mappings.todo_prev_state') end,  "TODO: cycle prev state")
+          bkm(',s',  function() require('orgmode').action('mappings.org_schedule') end,     "Set SCHEDULED")
+          bkm(',d',  function() require('orgmode').action('mappings.org_deadline') end,     "Set DEADLINE")
+          bkm(',p',  function() require('orgmode').action('mappings.set_priority') end,     "Set priority")
+          bkm(',x',  function() require('orgmode').action('mappings.toggle_checkbox') end,  "Toggle checkbox")
+          bkm(',*',  function() require('orgmode').action('mappings.toggle_heading') end,   "Toggle heading")
+          -- Tags
+          bkm(',gt', function() require('orgmode').action('mappings.set_tags') end,         "Set tags")
+          -- Clocking
+          bkm(',ci', function() require('orgmode').action('clock.org_clock_in') end,        "Clock in")
+          bkm(',co', function() require('orgmode').action('clock.org_clock_out') end,       "Clock out")
+          bkm(',cq', function() require('orgmode').action('clock.org_clock_cancel') end,    "Clock cancel")
+          -- Roam (buffer-local context)
+          bkm(',rb', function() require('org-roam').ui.toggle_node_buffer() end,            "Roam: toggle backlinks panel")
+          bkm(',ri', function() require('org-roam').api.insert_node() end,                  "Roam: insert node link")
+        end,
+      })
+    '';
+
     # ── Orgmode experimental LSP (Neovim ≥ 0.11) ──────────────────────
     luaConfigRC."org-lsp-setup" = lib.nvim.dag.entryAnywhere ''
       local ok, orgmode = pcall(require, 'orgmode')
@@ -395,30 +417,55 @@ in
     '';
 
     # ── Keymaps ────────────────────────────────────────────────────────
-    # org-roam bindings are declared inside org-roam.setup() above.
-    keymaps = [
-      {
-        key    = "<leader>of";
-        action = ''
-          function()
-            require('telescope.builtin').find_files({
-              search_dirs  = { vim.fn.expand('~/citizengo/notes/') },
-              prompt_title = 'Org Files',
-            })
-          end'';
+    # All org-roam bindings live here (bindings=false in setup above).
+    # Orgmode's own <leader>oa (agenda) and <leader>oc (capture) remain
+    # active; our sub-bindings extend them under which-key.
+    keymaps = let
+      # Helper: build a keymap attrset.
+      km = key: action: desc: {
+        inherit key action desc;
         lua    = true;
         mode   = ["n"];
-        desc   = "Org: find files";
         silent = true;
-      }
-      {
-        key    = "<leader>oh";
-        action = "function() require('telescope').extensions.orgmode.search_headings() end";
-        lua    = true;
-        mode   = ["n"];
-        desc   = "Org: search headlines";
-        silent = true;
-      }
+      };
+    in [
+      # ── Journal / Dailies (<leader>oj*) ──────────────────────────────
+      (km "<leader>ojj" "function() require('org-roam').ext.dailies.goto_today() end"       "Daily: today")
+      (km "<leader>ojy" "function() require('org-roam').ext.dailies.goto_yesterday() end"   "Daily: yesterday")
+      (km "<leader>ojm" "function() require('org-roam').ext.dailies.goto_tomorrow() end"    "Daily: tomorrow (morrow)")
+      (km "<leader>ojd" "function() require('org-roam').ext.dailies.goto_date() end"        "Daily: pick date (calendar)")
+      (km "<leader>ojn" "function() require('org-roam').ext.dailies.goto_next_date() end"   "Daily: next in sequence")
+      (km "<leader>ojp" "function() require('org-roam').ext.dailies.goto_prev_date() end"   "Daily: previous in sequence")
+      (km "<leader>ojc" "function() require('org-roam').ext.dailies.capture_today() end"    "Daily: capture to today")
+      (km "<leader>oji" "function() require('orgmode').action('capture.open_template_by_shortcut', 'i') end" "Daily: inbox item")
+
+      # ── Nodes / Roam (<leader>on*) ───────────────────────────────────
+      (km "<leader>onf" "function() require('org-roam').api.find_node() end"                "Roam: find/create node")
+      (km "<leader>onn" "function() require('org-roam').api.capture_node() end"             "Roam: new node")
+      (km "<leader>oni" "function() require('org-roam').api.insert_node() end"              "Roam: insert link")
+      (km "<leader>onb" "function() require('org-roam').ui.toggle_node_buffer() end"        "Roam: toggle backlinks")
+
+      # ── Capture (<leader>oc*) — extends orgmode's existing <leader>oc ─
+      # <leader>occ = dispatcher (duplicate of orgmode's <leader>oc for discoverability)
+      (km "<leader>occ" "function() require('orgmode').action('capture.prompt') end"        "Capture: dispatcher")
+      (km "<leader>oci" "function() require('orgmode').action('capture.open_template_by_shortcut', 'i') end" "Capture: inbox")
+      (km "<leader>oct" "function() require('orgmode').action('capture.open_template_by_shortcut', 't') end" "Capture: task/todo")
+      (km "<leader>ocn" "function() require('org-roam').api.capture_node() end"             "Capture: new roam node")
+      (km "<leader>ock" "function() require('orgmode').action('capture.open_template_by_shortcut', 'b') end" "Capture: brainstorm/kill")
+
+      # ── Agenda (<leader>oa*) — extends orgmode's existing <leader>oa ──
+      (km "<leader>oaa" "function() require('orgmode').action('agenda.prompt') end"         "Agenda: dispatcher")
+      (km "<leader>oat" "function() require('orgmode').action('agenda.todos') end"          "Agenda: TODO list")
+      (km "<leader>oaw" "function() require('orgmode').action('agenda.agenda') end"         "Agenda: week view")
+
+      # ── Search (<leader>os*) ─────────────────────────────────────────
+      (km "<leader>osf" ''function() require('telescope.builtin').find_files({ search_dirs = { vim.fn.expand('~/citizengo/notes/') }, prompt_title = 'Org Files' }) end'' "Search: find org files")
+      (km "<leader>osh" "function() require('telescope').extensions.orgmode.search_headings() end"                                                                        "Search: headings")
+      (km "<leader>osg" ''function() require('telescope.builtin').live_grep({ search_dirs = { vim.fn.expand('~/citizengo/notes/') }, prompt_title = 'Grep Org' }) end''  "Search: grep org files")
+      (km "<leader>osl" "function() require('orgmode').action('mappings.insert_link') end"  "Search: insert link")
+
+      # ── Lists / Clock (<leader>ol*) ──────────────────────────────────
+      (km "<leader>olc" "function() require('orgmode').action('clock.org_clock_goto') end"  "Clock: go to active clock")
     ];
 
     # ── Filetype autocmds ──────────────────────────────────────────────
