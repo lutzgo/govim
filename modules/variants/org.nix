@@ -258,9 +258,11 @@ in
       };
 
       # org-modern: modern pop-up menus for capture and agenda dispatch.
-      # Deep integration (overriding orgmode's ui.menu handler) is done in
-      # luaConfigRC."org-modern-integration" below, because it requires a
-      # Lua closure that cannot be expressed in Nix setupOpts.
+      # NOTE: the menu handler (ui.menu.handler) is a Lua closure that cannot
+      # be expressed in Nix setupOpts, and nvim-orgmode has no post-setup API
+      # to inject it. The plugin loads but the menu override is inactive.
+      # To activate it, you would need a downstream wrapper that calls
+      # orgmode.setup({ ui = { menu = { handler = ... } } }) directly.
       org-modern-nvim = {
         package = org-modern;
         setup   = "";
@@ -273,27 +275,6 @@ in
         setup   = "";
       };
     };
-
-    # ── org-modern menu integration ────────────────────────────────────
-    # org-modern overrides orgmode's built-in dispatch menu with a
-    # nui.nvim-backed popup. The handler is a Lua closure, so it cannot
-    # live in setupOpts (Nix-serialised). We patch it here instead, after
-    # all plugins are loaded but before the first org buffer opens.
-    luaConfigRC."org-modern-integration" = lib.nvim.dag.entryAnywhere ''
-      local ok_orgmode, orgmode = pcall(require, 'orgmode')
-      local ok_menu,    Menu    = pcall(require, 'org-modern.menu')
-      if ok_orgmode and ok_menu then
-        orgmode.setup_ext({
-          ui = {
-            menu = {
-              handler = function(data)
-                Menu:open(data)
-              end,
-            },
-          },
-        })
-      end
-    '';
 
     # ── Orgmode experimental LSP (Neovim ≥ 0.11) ──────────────────────
     luaConfigRC."org-lsp-setup" = lib.nvim.dag.entryAnywhere ''
