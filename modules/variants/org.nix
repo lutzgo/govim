@@ -154,23 +154,41 @@ in
       org_startup_folded      = "content";
       org_startup_indented    = true;
 
-      # Capture templates.
-      # %U = inactive timestamp · %? = cursor after expansion.
+      # Capture templates  (<leader>oc to open the dispatcher).
+      # Keys are mnemonic: i=inbox j=journal t=task r=routine b=brainstorm.
+      # %U = inactive timestamp  %t = active date stamp  %? = cursor position.
       org_capture_templates = {
-        n = {
-          description = "Quick note";
-          template    = "* %?\n  %U";
-          target      = "~/citizengo/notes/journal/inbox.org";
+        # ── Zero-friction inbox drop ──────────────────────────────────────
+        i = {
+          description = "Inbox";
+          template    = "* %? :inbox:\n  %U";
+          target      = "~/citizengo/notes/inbox.org";
         };
+        # ── Timestamped journal entry → today's daily file ────────────────
+        # Creates ~/citizengo/notes/journal/YYYY-MM-DD.org if missing.
         j = {
-          description = "Journal entry";
-          template    = "* %U %?";
-          target      = "~/citizengo/notes/journal/inbox.org";
+          description = "Journal";
+          template    = "* %<%H:%M> %?\n";
+          target      = "~/citizengo/notes/journal/%<%Y-%m-%d>.org";
         };
+        # ── Actionable task ───────────────────────────────────────────────
         t = {
-          description = "Todo item";
-          template    = "* TODO %?\n  %U";
+          description = "Task";
+          template    = "* TODO %?\n  SCHEDULED: %t\n  %U";
           target      = "~/citizengo/notes/todo.org";
+        };
+        # ── Repeating routine / habit ─────────────────────────────────────
+        # Add a repeater (e.g. .+1d) to SCHEDULED after capture.
+        r = {
+          description = "Routine";
+          template    = "* TODO [#B] %?\n  SCHEDULED: %t\n  :PROPERTIES:\n  :STYLE:    habit\n  :END:\n  %U";
+          target      = "~/citizengo/notes/routines.org";
+        };
+        # ── Idea / brainstorm ─────────────────────────────────────────────
+        b = {
+          description = "Brainstorm";
+          template    = "* %? :idea:\n  %U";
+          target      = "~/citizengo/notes/inbox.org";
         };
       };
     };
@@ -205,7 +223,19 @@ in
             },
             extensions = {
               dailies = {
-                directory = vim.fn.expand('~/citizengo/notes/journal/'),
+                -- Relative to directory above; vim.fs.normalize resolves ../
+                -- → ~/citizengo/notes/journal/
+                directory = '../journal',
+                -- capture_today (<leader>rD) uses this template.
+                -- goto_today (<leader>rd) creates a bare buffer; the
+                -- org-daily-scaffold autocmd (luaConfigRC) adds sections.
+                templates = {
+                  d = {
+                    description = 'Daily capture',
+                    template    = '** %?\n   %U',
+                    target      = '%<%Y-%m-%d>.org',
+                  },
+                },
                 bindings  = {
                   goto_today     = '<prefix>d',
                   goto_yesterday = '<prefix>y',
@@ -258,11 +288,10 @@ in
       };
 
       # org-modern: modern pop-up menus for capture and agenda dispatch.
-      # NOTE: the menu handler (ui.menu.handler) is a Lua closure that cannot
-      # be expressed in Nix setupOpts, and nvim-orgmode has no post-setup API
-      # to inject it. The plugin loads but the menu override is inactive.
-      # To activate it, you would need a downstream wrapper that calls
-      # orgmode.setup({ ui = { menu = { handler = ... } } }) directly.
+      # The handler is wired in luaConfigRC."org-modern-integration" below.
+      # (Lua closures cannot live in Nix setupOpts; we patch the config
+      # singleton post-setup instead — safe because orgmode reads the handler
+      # at call time, not at setup time.)
       org-modern-nvim = {
         package = org-modern;
         setup   = "";
@@ -275,6 +304,70 @@ in
         setup   = "";
       };
     };
+
+    # ── org-modern menu integration ────────────────────────────────────
+    # luaConfigRC runs after pluginRC (which contains orgmode.setup()), so
+    # the config singleton already exists.  orgmode/ui/menu.lua reads
+    # config.ui.menu.handler at *call time* (not cached), so patching here
+    # is safe and takes effect the first time any org menu is opened.
+    luaConfigRC."org-modern-integration" = lib.nvim.dag.entryAnywhere ''
+      do
+        local ok_menu, Menu   = pcall(require, 'org-modern.menu')
+        local ok_cfg,  config = pcall(require, 'orgmode.config')
+        if ok_menu and ok_cfg and config and config.opts
+            and config.opts.ui and config.opts.ui.menu then
+          config.opts.ui.menu.handler = function(data)
+            Menu:open(data)
+          end
+        end
+      end
+    '';
+
+    # ── Daily note scaffold ────────────────────────────────────────────
+    # goto_today (<leader>rd) creates a bare buffer (PROPERTIES + TITLE).
+    # This autocmd fires when that new buffer is shown and appends the
+    # standard daily sections *before the file is ever written to disk*.
+    luaConfigRC."org-daily-scaffold" = lib.nvim.dag.entryAnywhere ''
+      vim.api.nvim_create_autocmd('BufWinEnter', {
+        group   = vim.api.nvim_create_augroup('org_daily_scaffold', { clear = true }),
+        pattern = vim.fn.expand('~/citizengo/notes/journal/') .. '????-??-??.org',
+        callback = function(ev)
+          -- Skip if the file already exists on disk (already has content).
+          if vim.fn.filereadable(ev.file) == 1 then return end
+          local lines = vim.api.nvim_buf_get_lines(ev.buf, 0, -1, false)
+          -- org-roam's make_daily_buffer writes exactly 5 lines; bail if
+          -- there is already more content (e.g. a second BufWinEnter).
+          if #lines > 5 then return end
+          -- Build a human-readable title: 2026-05-04 Monday
+          local date = vim.fn.fnamemodify(ev.file, ':t:r')
+          local y, m, d = date:match('^(%d+)-(%d+)-(%d+)$')
+          local title = date
+          if y then
+            local ts = os.time({ year=tonumber(y), month=tonumber(m),
+                                  day=tonumber(d), hour=12 })
+            title = date .. ' ' .. os.date('%A', ts)
+          end
+          vim.api.nvim_buf_set_lines(ev.buf, 0, -1, false, {
+            ':PROPERTIES:',
+            ':ID:       ' .. (lines[2] and lines[2]:match(':ID:%s*(.+)') or ""),
+            ':END:',
+            '#+title: ' .. title,
+            '#+filetags: :daily:',
+            "",
+            '* Inbox',
+            "",
+            '* Journal',
+            "",
+            '* Ideas',
+            "",
+            '* Todos [/]',
+            "",
+            '* Evening review',
+            "",
+          })
+        end,
+      })
+    '';
 
     # ── Orgmode experimental LSP (Neovim ≥ 0.11) ──────────────────────
     luaConfigRC."org-lsp-setup" = lib.nvim.dag.entryAnywhere ''
