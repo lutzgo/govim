@@ -339,6 +339,36 @@ in
       })
     '';
 
+    # ── Telescope-based org link picker ───────────────────────────────
+    # Exposes _G.org_insert_file_link() used by <leader>osl and ,rl.
+    # Opens a find_files picker scoped to the notes dir; on <CR> it
+    # inserts [[file:/abs/path][filename-without-ext]] at the cursor.
+    luaConfigRC."org-link-picker" = lib.nvim.dag.entryAnywhere ''
+      _G.org_insert_file_link = function()
+        local ok, builtin = pcall(require, 'telescope.builtin')
+        if not ok then return end
+        local actions      = require('telescope.actions')
+        local action_state = require('telescope.actions.state')
+        builtin.find_files({
+          search_dirs  = { vim.fn.expand('~/citizengo/notes/') },
+          prompt_title = 'Insert Org Link',
+          find_command = { 'fd', '--type', 'f', '--extension', 'org' },
+          attach_mappings = function(prompt_bufnr)
+            actions.select_default:replace(function()
+              actions.close(prompt_bufnr)
+              local sel = action_state.get_selected_entry()
+              if not sel then return end
+              local path  = sel.path or sel[1]
+              local title = vim.fn.fnamemodify(path, ':t:r')
+              local link  = string.format('[[file:%s][%s]]', path, title)
+              vim.api.nvim_put({ link }, 'c', false, true)
+            end)
+            return true
+          end,
+        })
+      end
+    '';
+
     # ── which-key group labels ─────────────────────────────────────────
     # Register prefix descriptions so which-key shows meaningful group names
     # instead of raw key characters when you press <leader>o.
@@ -386,7 +416,8 @@ in
           bkm(',cq', function() require('orgmode').action('clock.org_clock_cancel') end,    "Clock cancel")
           -- Roam (buffer-local context)
           bkm(',rb', function() require('org-roam').ui.toggle_node_buffer() end,            "Roam: toggle backlinks panel")
-          bkm(',ri', function() require('org-roam').api.insert_node() end,                  "Roam: insert node link")
+          bkm(',ri', function() require('org-roam').api.insert_node() end,                  "Roam: insert node link (roam ID)")
+          bkm(',rl', function() _G.org_insert_file_link() end,                              "Roam: insert file link (telescope)")
         end,
       })
     '';
@@ -446,7 +477,7 @@ in
       (km "<leader>osf" ''function() require('telescope.builtin').find_files({ search_dirs = { vim.fn.expand('~/citizengo/notes/') }, prompt_title = 'Org Files' }) end'' "Search: find org files")
       (km "<leader>osh" "function() require('telescope').extensions.orgmode.search_headings() end"                                                                        "Search: headings")
       (km "<leader>osg" ''function() require('telescope.builtin').live_grep({ search_dirs = { vim.fn.expand('~/citizengo/notes/') }, prompt_title = 'Grep Org' }) end''  "Search: grep org files")
-      (km "<leader>osl" "function() require('orgmode').action('org_mappings.insert_link') end" "Search: insert link")
+      (km "<leader>osl" "function() _G.org_insert_file_link() end"                            "Search: insert org link (telescope)")
 
       # ── Lists / Clock (<leader>ol*) ──────────────────────────────────
       (km "<leader>olc" "function() require('orgmode').action('clock.org_clock_goto') end"  "Clock: go to active clock")
