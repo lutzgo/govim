@@ -446,7 +446,7 @@ in
       (km "<leader>osf" ''function() require('telescope.builtin').find_files({ search_dirs = { vim.fn.expand('~/citizengo/notes/') }, prompt_title = 'Org Files' }) end'' "Search: find org files")
       (km "<leader>osh" "function() require('telescope').extensions.orgmode.search_headings() end"                                                                        "Search: headings")
       (km "<leader>osg" ''function() require('telescope.builtin').live_grep({ search_dirs = { vim.fn.expand('~/citizengo/notes/') }, prompt_title = 'Grep Org' }) end''  "Search: grep org files")
-      (km "<leader>osl" "function() require('orgmode').action('mappings.insert_link') end"  "Search: insert link")
+      (km "<leader>osl" "function() require('orgmode').action('org_mappings.insert_link') end" "Search: insert link")
 
       # ── Lists / Clock (<leader>ol*) ──────────────────────────────────
       (km "<leader>olc" "function() require('orgmode').action('clock.org_clock_goto') end"  "Clock: go to active clock")
