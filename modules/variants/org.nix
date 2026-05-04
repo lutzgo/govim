@@ -289,12 +289,12 @@ in
         local ok_cfg,  config = pcall(require, 'orgmode.config')
         if ok_menu and ok_cfg and config and config.opts
             and config.opts.ui and config.opts.ui.menu then
-          -- Must create an instance; calling Menu:open() on the class
-          -- itself fails because Menu.window (the options table) is nil
-          -- until Menu:new() copies default_config into a new object.
-          local menu = Menu:new()
+          -- Create a fresh instance per call: Menu:open() writes the
+          -- window handle into self.window (line 119), so a reused instance
+          -- would have self.window = <number> on the next call and crash
+          -- when _process_items tries self.window.padding (line 52).
           config.opts.ui.menu.handler = function(data)
-            menu:open(data)
+            Menu:new():open(data)
           end
         end
       end
