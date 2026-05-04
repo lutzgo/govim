@@ -151,21 +151,14 @@ in
     # setupOpts is passed verbatim to require('orgmode').setup().
     notes.orgmode.setupOpts = {
       org_agenda_files        = ["~/citizengo/notes/**/*"];
-      org_default_notes_file  = "~/citizengo/notes/journal/inbox.org";
       org_todo_keywords       = ["TODO" "IN-PROGRESS" "WAITING" "|" "DONE" "CANCELLED"];
       org_startup_folded      = "content";
       org_startup_indented    = true;
 
-      # Capture templates  (<leader>oc to open the dispatcher).
-      # Keys are mnemonic: i=inbox j=journal t=task r=routine b=brainstorm.
+      # Capture templates  (<leader>occ to open the dispatcher).
+      # Keys are mnemonic: j=journal t=task r=routine b=brainstorm.
       # %U = inactive timestamp  %t = active date stamp  %? = cursor position.
       org_capture_templates = {
-        # ── Zero-friction inbox drop ──────────────────────────────────────
-        i = {
-          description = "Inbox";
-          template    = "* %? :inbox:\n  %U";
-          target      = "~/citizengo/notes/inbox.org";
-        };
         # ── Timestamped journal entry → today's daily file ────────────────
         # Creates ~/citizengo/notes/journal/YYYY-MM-DD.org if missing.
         j = {
@@ -186,11 +179,11 @@ in
           template    = "* TODO [#B] %?\n  SCHEDULED: %t\n  :PROPERTIES:\n  :STYLE:    habit\n  :END:\n  %U";
           target      = "~/citizengo/notes/routines.org";
         };
-        # ── Idea / brainstorm ─────────────────────────────────────────────
+        # ── Idea / brainstorm → today's daily ────────────────────────────
         b = {
           description = "Brainstorm";
           template    = "* %? :idea:\n  %U";
-          target      = "~/citizengo/notes/inbox.org";
+          target      = "~/citizengo/notes/journal/%<%Y-%m-%d>.org";
         };
       };
     };
@@ -430,7 +423,6 @@ in
       (km "<leader>ojn" "function() require('org-roam').ext.dailies.goto_next_date() end"   "Daily: next in sequence")
       (km "<leader>ojp" "function() require('org-roam').ext.dailies.goto_prev_date() end"   "Daily: previous in sequence")
       (km "<leader>ojc" "function() require('org-roam').ext.dailies.capture_today() end"    "Daily: capture to today")
-      (km "<leader>oji" "function() require('orgmode').action('capture.open_template_by_shortcut', 'i') end" "Daily: inbox item")
 
       # ── Nodes / Roam (<leader>on*) ───────────────────────────────────
       (km "<leader>onf" "function() require('org-roam').api.find_node() end"                "Roam: find/create node")
@@ -441,7 +433,6 @@ in
       # ── Capture (<leader>oc*) — extends orgmode's existing <leader>oc ─
       # <leader>occ = dispatcher (duplicate of orgmode's <leader>oc for discoverability)
       (km "<leader>occ" "function() require('orgmode').action('capture.prompt') end"        "Capture: dispatcher")
-      (km "<leader>oci" "function() require('orgmode').action('capture.open_template_by_shortcut', 'i') end" "Capture: inbox")
       (km "<leader>oct" "function() require('orgmode').action('capture.open_template_by_shortcut', 't') end" "Capture: task/todo")
       (km "<leader>ocn" "function() require('org-roam').api.capture_node() end"             "Capture: new roam node")
       (km "<leader>ock" "function() require('orgmode').action('capture.open_template_by_shortcut', 'b') end" "Capture: brainstorm/kill")
