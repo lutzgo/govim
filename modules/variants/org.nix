@@ -253,13 +253,6 @@ in
         '';
       };
 
-      # headlines: loaded but org highlighting disabled — the background
-      # bands are distracting in a dark-theme prose workflow.
-      headlines-nvim = {
-        package = pkgs.vimPlugins.headlines-nvim;
-        setup   = "require('headlines').setup({ org = false })";
-      };
-
       # org-super-agenda: group agenda view by tag, priority, date, etc.
       org-super-agenda-nvim = {
         package = org-super-agenda;
