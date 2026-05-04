@@ -241,6 +241,16 @@ in
                   goto_yesterday = '<prefix>y',
                   goto_tomorrow  = '<prefix>t',
                   capture_today  = '<prefix>D',
+                  -- Disable every default binding that begins with <prefix>d
+                  -- to prevent Neovim / which-key from stalling on <prefix>d
+                  -- while it waits to see whether more keys follow.
+                  goto_date       = false,
+                  goto_next_date  = false,
+                  goto_prev_date  = false,
+                  capture_date    = false,
+                  capture_yesterday = false,
+                  capture_tomorrow  = false,
+                  find_directory    = false,
                 },
               },
             },
@@ -316,8 +326,12 @@ in
         local ok_cfg,  config = pcall(require, 'orgmode.config')
         if ok_menu and ok_cfg and config and config.opts
             and config.opts.ui and config.opts.ui.menu then
+          -- Must create an instance; calling Menu:open() on the class
+          -- itself fails because Menu.window (the options table) is nil
+          -- until Menu:new() copies default_config into a new object.
+          local menu = Menu:new()
           config.opts.ui.menu.handler = function(data)
-            Menu:open(data)
+            menu:open(data)
           end
         end
       end
