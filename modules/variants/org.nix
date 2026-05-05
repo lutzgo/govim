@@ -294,49 +294,79 @@ in
     '';
 
     # ── Daily note scaffold ────────────────────────────────────────────
-    # goto_today (<leader>rd) creates a bare buffer (PROPERTIES + TITLE).
-    # This autocmd fires when that new buffer is shown and appends the
-    # standard daily sections *before the file is ever written to disk*.
+    # Two-part approach:
+    #
+    # 1. BufWinEnter autocmd: handles goto_today (<leader>ojj).
+    #    org-roam creates a buffer with PROPERTIES+title (≤5 lines) and
+    #    displays it; we expand it to the full scaffold immediately.
+    #
+    # 2. _G.org_capture_today helper: handles capture_today (<leader>ojc).
+    #    org-roam loads the daily buffer in the background during capture
+    #    (BufWinEnter never fires for it), so we pre-write the scaffold
+    #    to disk before handing off to org-roam's capture_today.
+    #    The capture entry is then appended inside the correct section.
     luaConfigRC."org-daily-scaffold" = lib.nvim.dag.entryAnywhere ''
-      vim.api.nvim_create_autocmd('BufWinEnter', {
-        group   = vim.api.nvim_create_augroup('org_daily_scaffold', { clear = true }),
-        pattern = vim.fn.expand('~/citizengo/notes/journal/') .. '????-??-??.org',
+      -- Shared helper: build the scaffold line list for a given date string.
+      local function daily_scaffold_lines(date, id)
+        local y, m, d = date:match('^(%d+)-(%d+)-(%d+)$')
+        local title = date
+        if y then
+          local ts = os.time({ year=tonumber(y), month=tonumber(m),
+                                day=tonumber(d), hour=12 })
+          title = date .. " " .. os.date("%A", ts)
+        end
+        return {
+          ":PROPERTIES:",
+          ":ID:       " .. (id or ""),
+          ":END:",
+          "#+title: " .. title,
+          "#+filetags: :daily:",
+          "",
+          "* Inbox",
+          "",
+          "* Journal",
+          "",
+          "* Ideas",
+          "",
+          "* Todos",
+          "",
+          "* Routines",
+          "",
+          "* Projects",
+          "",
+        }
+      end
+
+      -- 1. BufWinEnter: scaffold when goto_today opens a new buffer.
+      vim.api.nvim_create_autocmd("BufWinEnter", {
+        group   = vim.api.nvim_create_augroup("org_daily_scaffold", { clear = true }),
+        pattern = vim.fn.expand("~/citizengo/notes/journal/") .. "????-??-??.org",
         callback = function(ev)
-          -- Skip if the file already exists on disk (already has content).
           if vim.fn.filereadable(ev.file) == 1 then return end
           local lines = vim.api.nvim_buf_get_lines(ev.buf, 0, -1, false)
-          -- org-roam's make_daily_buffer writes exactly 5 lines; bail if
-          -- there is already more content (e.g. a second BufWinEnter).
           if #lines > 5 then return end
-          -- Build a human-readable title: 2026-05-04 Monday
-          local date = vim.fn.fnamemodify(ev.file, ':t:r')
-          local y, m, d = date:match('^(%d+)-(%d+)-(%d+)$')
-          local title = date
-          if y then
-            local ts = os.time({ year=tonumber(y), month=tonumber(m),
-                                  day=tonumber(d), hour=12 })
-            title = date .. ' ' .. os.date('%A', ts)
+          -- Extract org-roam's assigned :ID: from the bare buffer.
+          local id = ""
+          for _, l in ipairs(lines) do
+            local v = l:match("^:ID:%s+(.+)")
+            if v then id = vim.trim(v); break end
           end
-          vim.api.nvim_buf_set_lines(ev.buf, 0, -1, false, {
-            ':PROPERTIES:',
-            ':ID:       ' .. (lines[2] and lines[2]:match(':ID:%s*(.+)') or ""),
-            ':END:',
-            '#+title: ' .. title,
-            '#+filetags: :daily:',
-            "",
-            '* Inbox',
-            "",
-            '* Journal',
-            "",
-            '* Ideas',
-            "",
-            '* Todos [/]',
-            "",
-            '* Evening review',
-            "",
-          })
+          local date = vim.fn.fnamemodify(ev.file, ":t:r")
+          vim.api.nvim_buf_set_lines(ev.buf, 0, -1, false,
+            daily_scaffold_lines(date, id))
         end,
       })
+
+      -- 2. capture_today wrapper: pre-write scaffold to disk so the
+      --    file already has structure when org-roam appends the capture.
+      _G.org_capture_today = function()
+        local date = os.date("%Y-%m-%d")
+        local path = vim.fn.expand("~/citizengo/notes/journal/" .. date .. ".org")
+        if vim.fn.filereadable(path) == 0 then
+          vim.fn.writefile(daily_scaffold_lines(date, ""), path)
+        end
+        require("org-roam").ext.dailies.capture_today()
+      end
     '';
 
     # ── Telescope-based org link picker ───────────────────────────────
@@ -453,7 +483,7 @@ in
       (km "<leader>ojd" "function() require('org-roam').ext.dailies.goto_date() end"        "Daily: pick date (calendar)")
       (km "<leader>ojn" "function() require('org-roam').ext.dailies.goto_next_date() end"   "Daily: next in sequence")
       (km "<leader>ojp" "function() require('org-roam').ext.dailies.goto_prev_date() end"   "Daily: previous in sequence")
-      (km "<leader>ojc" "function() require('org-roam').ext.dailies.capture_today() end"    "Daily: capture to today")
+      (km "<leader>ojc" "function() _G.org_capture_today() end"                             "Daily: capture to today")
 
       # ── Nodes / Roam (<leader>on*) ───────────────────────────────────
       (km "<leader>onf" "function() require('org-roam').api.find_node() end"                "Roam: find/create node")
