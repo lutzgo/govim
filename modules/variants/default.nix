@@ -27,11 +27,8 @@
     };
 
     # ---- Completion --------------------------------------------------
-    autocomplete.blink-cmp = {
-      enable = true;
-      # Signature help replaces lsp-signature (incompatible with blink).
-      setupOpts.signature.enabled = true;
-    };
+    # blink-cmp base is in common.nix; extend with LSP signature here.
+    autocomplete.blink-cmp.setupOpts.signature.enabled = true;
     snippets.luasnip.enable = true;
 
     # ---- Languages ---------------------------------------------------
@@ -50,8 +47,7 @@
     visuals.nvim-web-devicons.enable = true;
 
     # ---- Misc niceties ----------------------------------------------
-    # whichKey is in common.nix – available in all variants.
-    notify.nvim-notify.enable = true;
+    # whichKey, noice, nvim-notify, alpha, blink-cmp in common.nix.
     autopairs.nvim-autopairs.enable = true;
     comments.comment-nvim.enable = true;
   };

@@ -30,7 +30,7 @@
 
     # ---- Extras -----------------------------------------------------
     utility.smart-splits.enable = true;
-    visuals.fidget-nvim.enable = true;
+    # fidget-nvim removed: noice handles LSP progress notifications now.
     git.neogit.enable = true;
     session.nvim-session-manager.enable = true;
   };

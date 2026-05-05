@@ -525,9 +525,9 @@ in
     ];
 
     # ── Misc niceties ──────────────────────────────────────────────────
-    git.gitsigns.enable          = true;
+    # noice, nvim-notify, alpha, blink-cmp in common.nix.
+    git.gitsigns.enable              = true;
     visuals.nvim-web-devicons.enable = true;
-    notify.nvim-notify.enable    = true;
-    autopairs.nvim-autopairs.enable = true;
+    autopairs.nvim-autopairs.enable  = true;
   };
 }

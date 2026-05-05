@@ -9,7 +9,6 @@
   vim = {
     statusline.lualine.enable = true;
     telescope.enable = true;
-    filetree.nvimTree.enable = true;
 
     # ---- Languages --------------------------------------------------
     languages = {
@@ -41,9 +40,9 @@
     ];
 
     # ---- Git (useful even in prose repos) ---------------------------
+    # noice, nvim-notify, alpha, blink-cmp in common.nix.
     git.gitsigns.enable = true;
     visuals.nvim-web-devicons.enable = true;
-    notify.nvim-notify.enable = true;
     autopairs.nvim-autopairs.enable = true;
   };
 }
