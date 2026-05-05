@@ -431,15 +431,15 @@ in
             vim.keymap.set('n', lhs, action, { buffer = buf, silent = true, desc = desc })
           end
           -- State transitions
-          bkm(',t',  function() require('orgmode').action('mappings.todo_next_state') end,  "TODO: cycle next state")
-          bkm(',T',  function() require('orgmode').action('mappings.todo_prev_state') end,  "TODO: cycle prev state")
-          bkm(',s',  function() require('orgmode').action('mappings.org_schedule') end,     "Set SCHEDULED")
-          bkm(',d',  function() require('orgmode').action('mappings.org_deadline') end,     "Set DEADLINE")
-          bkm(',p',  function() require('orgmode').action('mappings.set_priority') end,     "Set priority")
-          bkm(',x',  function() require('orgmode').action('mappings.toggle_checkbox') end,  "Toggle checkbox")
-          bkm(',*',  function() require('orgmode').action('mappings.toggle_heading') end,   "Toggle heading")
+          bkm(',t',  function() require('orgmode').action('org_mappings.todo_next_state') end,  "TODO: cycle next state")
+          bkm(',T',  function() require('orgmode').action('org_mappings.todo_prev_state') end,  "TODO: cycle prev state")
+          bkm(',s',  function() require('orgmode').action('org_mappings.org_schedule') end,     "Set SCHEDULED")
+          bkm(',d',  function() require('orgmode').action('org_mappings.org_deadline') end,     "Set DEADLINE")
+          bkm(',p',  function() require('orgmode').action('org_mappings.set_priority') end,     "Set priority")
+          bkm(',x',  function() require('orgmode').action('org_mappings.toggle_checkbox') end,  "Toggle checkbox")
+          bkm(',*',  function() require('orgmode').action('org_mappings.toggle_heading') end,   "Toggle heading")
           -- Tags
-          bkm(',gt', function() require('orgmode').action('mappings.set_tags') end,         "Set tags")
+          bkm(',gt', function() require('orgmode').action('org_mappings.set_tags') end,         "Set tags")
           -- Clocking
           bkm(',ci', function() require('orgmode').action('clock.org_clock_in') end,        "Clock in")
           bkm(',co', function() require('orgmode').action('clock.org_clock_out') end,       "Clock out")
