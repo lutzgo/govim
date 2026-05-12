@@ -1,0 +1,10 @@
+[book]
+title = "govim"
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+no-section-label = true
+fold.enable = true
+fold.level = 1

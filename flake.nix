@@ -61,23 +61,36 @@
     #   nix run github:<you>/<repo>#minimal
     # ------------------------------------------------------------------
     packages = forEachSystem (
-      system:
+      system: let
+        pkgs = nixpkgs.legacyPackages.${system};
+      in
         builtins.mapAttrs (_name: mods: mkNeovim system mods) variants
         // {
           default = mkNeovim system variants.default;
+
+          # Build the mdBook documentation site.
+          # nix build .#docs  →  result/index.html
+          docs = pkgs.stdenv.mkDerivation {
+            name = "govim-docs";
+            src = ./docs;
+            nativeBuildInputs = [pkgs.mdbook];
+            buildPhase = "mdbook build";
+            installPhase = "cp -r book $out";
+          };
         }
     );
 
     # ------------------------------------------------------------------
     # Apps – so `nix run` picks the wrapped binary cleanly.
+    # Only the nvim variants are runnable; docs has no binary.
     # ------------------------------------------------------------------
     apps = forEachSystem (system: let
-      mkApp = pkg: {
+      mkApp = mods: {
         type = "app";
-        program = "${pkg}/bin/nvim";
+        program = "${mkNeovim system mods}/bin/nvim";
       };
     in
-      builtins.mapAttrs (_n: mkApp) self.packages.${system});
+      builtins.mapAttrs (_n: mkApp) variants);
 
     # ------------------------------------------------------------------
     # Checks – building every variant *is* the check.
@@ -105,6 +118,7 @@
           nil
           statix
           deadnix
+          mdbook # docs: `mdbook serve docs` for live preview
         ];
       };
     });
