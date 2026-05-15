@@ -20,15 +20,12 @@ in {
     enable = lib.mkEnableOption "govim – personal multi-variant Neovim";
 
     variant = lib.mkOption {
-      type = lib.types.enum ["minimal" "markdown" "default" "maximal" "org"];
+      type = lib.types.enum ["minimal" "default"];
       default = "default";
       description = ''
         Which govim variant to install.
-          minimal   – server-friendly, no LSP, runnable via `nix run`
-          markdown  – prose/notes: render-markdown, spellcheck, soft wrap
-          default   – daily-driver IDE (LSP, completion, git)
-          maximal   – kitchen sink: all of the above plus DAP and extras
-          org       – personal logging/PKM: nvim-orgmode, org-roam, gpg
+          minimal  – server-friendly, no LSP, runnable via `nix run`
+          default  – daily driver: IDE, org/PKM, markdown, all languages
       '';
     };
   };

@@ -27,20 +27,14 @@
     # Variants
     #
     # Each variant is a list of extra modules layered on top of the
-    # shared `modules/common.nix` base. Adding a variant = drop a file
-    # in `modules/variants/` and add it here.
+    # shared `modules/common.nix` base.
     #
-    #   minimal   – server-friendly, runnable purely via `nix run`.
-    #   markdown  – writing / notes; renderers, spelling, zen.
-    #   default   – daily driver IDE config (the `nix run .#` package).
-    #   maximal   – kitchen sink, all languages and goodies.
+    #   minimal  – server-friendly, runnable purely via `nix run`.
+    #   default  – daily driver: IDE, org/PKM, markdown, all languages.
     # ------------------------------------------------------------------
     variants = {
       minimal = [./modules/variants/minimal.nix];
-      markdown = [./modules/variants/markdown.nix];
       default = [./modules/variants/default.nix];
-      maximal = [./modules/variants/maximal.nix];
-      org = [./modules/variants/org.nix];
     };
 
     mkNeovim = system: extraModules:
