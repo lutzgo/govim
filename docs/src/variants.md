@@ -1,68 +1,41 @@
 # Variants
 
-## minimal
-
-No LSP, no formatters, no heavy plugins. Just telescope and a good colorscheme.
-The only variant with `nvimTree` disabled by default.
-
-**Use it for:** servers, ephemeral `nix run` sessions, quick edits over SSH.
+There are two variants. Everything that was previously in separate
+`markdown`, `maximal`, and `org` variants has been folded into `default`.
 
 ---
 
-## markdown
+## minimal
 
-Extends minimal with prose-writing tools.
+No LSP, no formatters, no heavy plugins. Telescope and lualine; that's it.
+
+**Use it for:** servers, ephemeral `nix run` sessions, quick edits over SSH.
 
 | Feature | Detail |
 |---------|--------|
-| Languages | Nix, Markdown (treesitter) |
-| In-buffer rendering | render-markdown.nvim — headings, tables, code blocks |
-| Spell check | English, scoped to `markdown`/`text`/`gitcommit` |
-| Soft wrap | `linebreak` + `breakindent` on prose filetypes |
-| Git | gitsigns |
+| Completion | blink-cmp (buffer + path sources) |
+| Fuzzy finder | telescope.nvim |
+| Statusline | lualine (bubble style) |
+| UI | noice.nvim, nvim-notify, which-key, alpha dashboard |
+| Theme | catppuccin mocha (overridden by stylix if present) |
 
 ---
 
 ## default
 
-Daily-driver IDE. Full LSP + blink-cmp + formatters for the languages you touch every day.
+Daily-driver IDE: full LSP, org/PKM, markdown rendering, all languages.
 
 | Feature | Detail |
 |---------|--------|
-| Languages | Nix, Lua, Bash, Markdown, Python, Rust, TypeScript, Go |
-| LSP | enabled per language, format-on-save, trouble.nvim, lightbulb |
-| Completion | blink-cmp with LSP + signature help + luasnip |
-| Git | gitsigns |
-| Extras | nvim-autopairs, comment.nvim, indent-blankline |
-
----
-
-## maximal
-
-Extends `default` with everything else.
-
-| Feature | Detail |
-|---------|--------|
-| Extra languages | HTML, CSS, YAML, TOML, JSON, SQL, Terraform, HCL |
-| Debugger | nvim-dap + dap-ui |
+| Languages | Nix, Lua, Bash, Markdown, Python, Rust, TypeScript, Go, HTML, CSS, YAML, TOML, JSON, SQL, Terraform, HCL |
+| LSP | Per-language servers, format-on-save, trouble.nvim, lightbulb |
+| Completion | blink-cmp — LSP + signature help + luasnip snippets |
+| Markdown | render-markdown.nvim (in-buffer heading/table/code rendering) |
 | Git | gitsigns + neogit |
+| Debugger | nvim-dap + nvim-dap-ui |
 | Navigation | smart-splits.nvim |
-| Sessions | nvim-session-manager |
-| AI | disabled — uncomment `codecompanion` or `copilot` when ready |
+| Sessions | nvim-session-manager (manual only — starts on dashboard) |
+| Org / PKM | nvim-orgmode, org-roam, telescope-orgmode, org-bullets, org-super-agenda, org-modern, vim-gnupg |
 
----
-
-## org
-
-Personal knowledge management. Built around nvim-orgmode and org-roam.
-
-| Feature | Detail |
-|---------|--------|
-| Core | nvim-orgmode with org-habit module |
-| Dailies | org-roam dailies extension |
-| Nodes | org-roam permanent notes + backlinks panel |
-| Search | telescope-orgmode (heading search) |
-| UI | org-bullets, org-super-agenda, org-modern menus |
-| GPG | vim-gnupg for transparent `.org.gpg` read/write |
-
-See [Org Workflow](guides/org-workflow.md) for the full setup guide.
+See [Plugins & LSPs](reference/plugins.md) for the full inventory and
+[Org Workflow](guides/org-workflow.md) for the PKM setup guide.

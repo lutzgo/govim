@@ -16,4 +16,5 @@
 ---
 
 - [Reference](reference/README.md)
+  - [Plugins & LSPs](reference/plugins.md)
   - [Keybindings](reference/keybindings.md)

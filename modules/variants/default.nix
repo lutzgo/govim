@@ -1,13 +1,15 @@
 # Default: daily driver + markdown rendering + org/PKM + full language suite.
 # Merges what were previously the markdown, default, maximal, and org variants.
-{ pkgs, lib, ... }:
-let
+{
+  pkgs,
+  lib,
+  ...
+}: let
   # ── Custom plugin derivations (not yet in nixpkgs) ─────────────────────
   #
   # All use plain mkDerivation (cp -r source → $out) to bypass nixpkgs's
   # buildVimPlugin neovim-require-check hook, which fails when a plugin
   # imports another plugin at load-time (e.g. telescope, orgmode).
-
   # telescope-orgmode.nvim: fuzzy search over org headings/files.
   # refile_heading.lua uses orgmode.parser.files (removed in newer orgmode);
   # we strip that export so only search_headings is exposed.
@@ -80,8 +82,7 @@ let
       runHook postInstall
     '';
   };
-in
-{
+in {
   imports = [
     ../languages/nix.nix
     ../languages/lua.nix
@@ -156,13 +157,20 @@ in
     # ── Extras ────────────────────────────────────────────────────────────
     utility.smart-splits.enable = true;
     session.nvim-session-manager.enable = true;
+    # Disable auto-restore so nvim always opens with the dashboard.
+    # Sessions can still be saved/loaded manually via :SessionManager.
+    luaConfigRC."session-no-autoload" = lib.nvim.dag.entryAnywhere ''
+      require('session_manager').setup({
+        autoload_mode = require('session_manager.config').AutoloadMode.Disabled,
+      })
+    '';
 
     # ── Globals ───────────────────────────────────────────────────────────
     # sqlite_clib_path must be set before sqlite.lua is first required
     # (org-roam loads it at startup). Nix store path is baked in at build.
     globals = {
-      GPGPreferArmor   = 1;   # ASCII-armored .org.gpg output
-      GPGUsePipes      = 1;   # pinentry-curses TTY compatibility
+      GPGPreferArmor = 1; # ASCII-armored .org.gpg output
+      GPGUsePipes = 1; # pinentry-curses TTY compatibility
       sqlite_clib_path = "${pkgs.sqlite.out}/lib/libsqlite3.so";
     };
 
@@ -170,9 +178,9 @@ in
     # languages/org.nix enables the plugin + treesitter grammar.
     # setupOpts is passed verbatim to require('orgmode').setup().
     notes.orgmode.setupOpts = {
-      org_agenda_files    = ["~/citizengo/notes/**/*"];
-      org_todo_keywords   = ["TODO" "IN-PROGRESS" "WAITING" "|" "DONE" "CANCELLED"];
-      org_startup_folded  = "content";
+      org_agenda_files = ["~/citizengo/notes/**/*"];
+      org_todo_keywords = ["TODO" "IN-PROGRESS" "WAITING" "|" "DONE" "CANCELLED"];
+      org_startup_folded = "content";
       org_startup_indented = true;
 
       # org-habit: enables habit tracking and the agenda consistency graph.
@@ -183,29 +191,29 @@ in
       org_capture_templates = {
         j = {
           description = "Journal";
-          template    = "* %<%H:%M> %?\n";
-          target      = "~/citizengo/notes/journal/%<%Y-%m-%d>.org";
+          template = "* %<%H:%M> %?\n";
+          target = "~/citizengo/notes/journal/%<%Y-%m-%d>.org";
         };
         t = {
           description = "Task";
-          template    = "* TODO %?\n  SCHEDULED: %t\n  %U";
-          target      = "~/citizengo/notes/todo.org";
+          template = "* TODO %?\n  SCHEDULED: %t\n  %U";
+          target = "~/citizengo/notes/todo.org";
         };
         n = {
           description = "Note";
-          template    = "* %? :idea:\n  %U";
-          target      = "~/citizengo/notes/notes.org";
+          template = "* %? :idea:\n  %U";
+          target = "~/citizengo/notes/notes.org";
         };
       };
 
       # Suppress orgmode's built-in clock defaults so that clock operations
       # live exclusively under our <leader>ol* namespace.
       mappings.org = {
-        org_clock_in     = false;
-        org_clock_out    = false;
+        org_clock_in = false;
+        org_clock_out = false;
         org_clock_cancel = false;
-        org_clock_goto   = false;
-        org_set_effort   = false;
+        org_clock_goto = false;
+        org_set_effort = false;
       };
     };
 
@@ -214,14 +222,14 @@ in
       # sqlite.lua: org-roam's database backend.
       sqlite-lua = {
         package = pkgs.vimPlugins.sqlite-lua;
-        setup   = "";
+        setup = "";
       };
 
       # org-roam: daily notes, backlinks, node IDs.
       org-roam = {
         package = pkgs.vimPlugins.org-roam-nvim;
-        after   = ["sqlite-lua"];
-        setup   = ''
+        after = ["sqlite-lua"];
+        setup = ''
           require('org-roam').setup({
             directory = vim.fn.expand('~/citizengo/notes/pages/'),
             bindings  = false,
@@ -244,14 +252,14 @@ in
       # telescope-orgmode: fuzzy search over headings and files.
       telescope-orgmode-nvim = {
         package = telescope-orgmode;
-        setup   = "require('telescope').load_extension('orgmode')";
-        after   = ["org-roam"];
+        setup = "require('telescope').load_extension('orgmode')";
+        after = ["org-roam"];
       };
 
       # org-bullets: Unicode bullets instead of asterisks on headings.
       org-bullets-nvim = {
         package = org-bullets;
-        setup   = ''
+        setup = ''
           require('org-bullets').setup({
             symbols = { '◉', '○', '✸', '✿' },
           })
@@ -261,20 +269,20 @@ in
       # org-super-agenda: group agenda view by tag, priority, date, etc.
       org-super-agenda-nvim = {
         package = org-super-agenda;
-        setup   = "require('org-super-agenda').setup()";
-        after   = ["org-roam"];
+        setup = "require('org-super-agenda').setup()";
+        after = ["org-roam"];
       };
 
       # org-modern: modern pop-up menus for capture and agenda dispatch.
       org-modern-nvim = {
         package = org-modern;
-        setup   = "";
+        setup = "";
       };
 
       # vim-gnupg: transparent read/write of .org.gpg files.
       vim-gnupg = {
         package = pkgs.vimPlugins.vim-gnupg;
-        setup   = "";
+        setup = "";
       };
     };
 
@@ -439,68 +447,113 @@ in
       end
     '';
 
+    # ── Lualine bubbles ───────────────────────────────────────────────────
+    # Full config in Lua so we can read Normal.bg at runtime and make the
+    # center sections transparent – giving the floating-pill effect.
+    # Stylix (or any host colorscheme) is picked up automatically.
+    luaConfigRC."lualine-bubbles" = lib.nvim.dag.entryAnywhere ''
+      local function _lualine_setup()
+        -- Patch the auto theme: make 'c' sections (center spacer) transparent
+        -- so only the colored end-caps show as discrete bubbles.
+        local hl     = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
+        local normbg = hl.bg and string.format("#%06x", hl.bg) or "NONE"
+        local theme  = require("lualine.themes.auto")
+        for _, mode in pairs(theme) do
+          if type(mode) == "table" and type(mode.c) == "table" then
+            mode.c.bg = normbg
+          end
+        end
+        require("lualine").setup({
+          options = {
+            theme                = theme,
+            section_separators   = { left = "", right = "" },
+            component_separators = "",
+            globalstatus         = true,
+          },
+          sections = {
+            lualine_a = { { "mode",     separator = { left = "" }, right_padding = 2 } },
+            lualine_b = { "branch", "diff", "diagnostics" },
+            lualine_c = { "filename" },
+            lualine_x = { "filetype", "encoding" },
+            lualine_y = { "progress" },
+            lualine_z = { { "location", separator = { right = "" }, left_padding = 2 } },
+          },
+          inactive_sections = {
+            lualine_a = {},
+            lualine_b = {},
+            lualine_c = { "filename" },
+            lualine_x = { "location" },
+            lualine_y = {},
+            lualine_z = {},
+          },
+        })
+      end
+      _lualine_setup()
+      -- Re-run when colorscheme changes (e.g. stylix applies on startup)
+      vim.api.nvim_create_autocmd("ColorScheme", { callback = _lualine_setup })
+    '';
     # ── Keymaps ───────────────────────────────────────────────────────────
     keymaps = let
       km = key: action: desc: {
         inherit key action desc;
-        lua    = true;
-        mode   = ["n"];
+        lua = true;
+        mode = ["n"];
         silent = true;
       };
     in [
       # ── Journal / Dailies (<leader>oj*) ──────────────────────────────
-      (km "<leader>ojj" "function() _G.org_goto_daily(function() require('org-roam').ext.dailies.goto_today() end) end"     "Daily: today")
+      (km "<leader>ojj" "function() _G.org_goto_daily(function() require('org-roam').ext.dailies.goto_today() end) end" "Daily: today")
       (km "<leader>ojy" "function() _G.org_goto_daily(function() require('org-roam').ext.dailies.goto_yesterday() end) end" "Daily: yesterday")
-      (km "<leader>ojm" "function() _G.org_goto_daily(function() require('org-roam').ext.dailies.goto_tomorrow() end) end"  "Daily: tomorrow")
-      (km "<leader>ojd" "function() _G.org_goto_daily(function() require('org-roam').ext.dailies.goto_date() end) end"      "Daily: pick date")
+      (km "<leader>ojm" "function() _G.org_goto_daily(function() require('org-roam').ext.dailies.goto_tomorrow() end) end" "Daily: tomorrow")
+      (km "<leader>ojd" "function() _G.org_goto_daily(function() require('org-roam').ext.dailies.goto_date() end) end" "Daily: pick date")
       (km "<leader>ojn" "function() _G.org_goto_daily(function() require('org-roam').ext.dailies.goto_next_date() end) end" "Daily: next")
       (km "<leader>ojp" "function() _G.org_goto_daily(function() require('org-roam').ext.dailies.goto_prev_date() end) end" "Daily: previous")
-      (km "<leader>ojc" "function() _G.org_capture_today() end"                                                              "Daily: capture to today")
+      (km "<leader>ojc" "function() _G.org_capture_today() end" "Daily: capture to today")
 
       # ── Nodes / Roam (<leader>on*) ───────────────────────────────────
-      (km "<leader>onf" "function() require('org-roam').api.find_node() end"           "Roam: find/create node")
-      (km "<leader>onn" "function() require('org-roam').api.capture_node() end"        "Roam: new node")
-      (km "<leader>oni" "function() require('org-roam').api.insert_node() end"         "Roam: insert link")
-      (km "<leader>onb" "function() require('org-roam').ui.toggle_node_buffer() end"   "Roam: toggle backlinks")
+      (km "<leader>onf" "function() require('org-roam').api.find_node() end" "Roam: find/create node")
+      (km "<leader>onn" "function() require('org-roam').api.capture_node() end" "Roam: new node")
+      (km "<leader>oni" "function() require('org-roam').api.insert_node() end" "Roam: insert link")
+      (km "<leader>onb" "function() require('org-roam').ui.toggle_node_buffer() end" "Roam: toggle backlinks")
 
       # ── Capture (<leader>oc*) ─────────────────────────────────────────
-      (km "<leader>occ" "function() require('orgmode').action('capture.prompt') end"                                        "Capture: dispatcher")
-      (km "<leader>ocj" "function() require('orgmode').action('capture.open_template_by_shortcut', 'j') end"               "Capture: journal")
-      (km "<leader>oct" "function() require('orgmode').action('capture.open_template_by_shortcut', 't') end"               "Capture: task")
-      (km "<leader>ocn" "function() require('orgmode').action('capture.open_template_by_shortcut', 'n') end"               "Capture: note")
+      (km "<leader>occ" "function() require('orgmode').action('capture.prompt') end" "Capture: dispatcher")
+      (km "<leader>ocj" "function() require('orgmode').action('capture.open_template_by_shortcut', 'j') end" "Capture: journal")
+      (km "<leader>oct" "function() require('orgmode').action('capture.open_template_by_shortcut', 't') end" "Capture: task")
+      (km "<leader>ocn" "function() require('orgmode').action('capture.open_template_by_shortcut', 'n') end" "Capture: note")
 
       # ── Agenda (<leader>oa*) ──────────────────────────────────────────
-      (km "<leader>oaa" "function() require('orgmode').action('agenda.prompt') end"    "Agenda: dispatcher")
-      (km "<leader>oat" "function() require('orgmode').action('agenda.todos') end"     "Agenda: TODO list")
-      (km "<leader>oaw" "function() require('orgmode').action('agenda.agenda') end"    "Agenda: week view")
+      (km "<leader>oaa" "function() require('orgmode').action('agenda.prompt') end" "Agenda: dispatcher")
+      (km "<leader>oat" "function() require('orgmode').action('agenda.todos') end" "Agenda: TODO list")
+      (km "<leader>oaw" "function() require('orgmode').action('agenda.agenda') end" "Agenda: week view")
 
       # ── Search (<leader>os*) ──────────────────────────────────────────
       (km "<leader>osf" ''function() require('telescope.builtin').find_files({ search_dirs = { vim.fn.expand('~/citizengo/notes/') }, prompt_title = 'Org Files' }) end'' "Search: find org files")
-      (km "<leader>osh" "function() require('telescope').extensions.orgmode.search_headings() end"                                                                        "Search: headings")
-      (km "<leader>osg" ''function() require('telescope.builtin').live_grep({ search_dirs = { vim.fn.expand('~/citizengo/notes/') }, prompt_title = 'Grep Org' }) end''  "Search: grep org files")
-      (km "<leader>osl" "function() _G.org_insert_file_link() end"                                                                                                        "Search: insert org link")
+      (km "<leader>osh" "function() require('telescope').extensions.orgmode.search_headings() end" "Search: headings")
+      (km "<leader>osg" ''function() require('telescope.builtin').live_grep({ search_dirs = { vim.fn.expand('~/citizengo/notes/') }, prompt_title = 'Grep Org' }) end'' "Search: grep org files")
+      (km "<leader>osl" "function() _G.org_insert_file_link() end" "Search: insert org link")
 
       # ── Misc ──────────────────────────────────────────────────────────
-      (km "<leader>o-"  "function() require('orgmode').action('org_mappings.meta_return') end" "Insert item/heading (context-aware)")
+      (km "<leader>o-" "function() require('orgmode').action('org_mappings.meta_return') end" "Insert item/heading (context-aware)")
 
       # ── Clock (<leader>ol*) ───────────────────────────────────────────
-      (km "<leader>oli" "function() require('orgmode').action('clock.org_clock_in') end"     "Clock: in")
-      (km "<leader>olo" "function() require('orgmode').action('clock.org_clock_out') end"    "Clock: out")
+      (km "<leader>oli" "function() require('orgmode').action('clock.org_clock_in') end" "Clock: in")
+      (km "<leader>olo" "function() require('orgmode').action('clock.org_clock_out') end" "Clock: out")
       (km "<leader>olq" "function() require('orgmode').action('clock.org_clock_cancel') end" "Clock: cancel")
-      (km "<leader>olc" "function() require('orgmode').action('clock.org_clock_goto') end"   "Clock: goto active")
+      (km "<leader>olc" "function() require('orgmode').action('clock.org_clock_goto') end" "Clock: goto active")
     ];
 
     # ── Filetype autocmds ─────────────────────────────────────────────────
     autocmds = [
       # Prose: soft wrap + per-filetype spellcheck (not global).
       {
-        event   = ["FileType"];
+        event = ["FileType"];
         pattern = ["markdown" "text" "gitcommit"];
         command = "setlocal wrap linebreak breakindent spell spelllang=en";
       }
       # Org: spell + conceal + prose layout, hide line numbers.
       {
-        event   = ["FileType"];
+        event = ["FileType"];
         pattern = ["org"];
         command = "setlocal spell spelllang=en conceallevel=2 linebreak breakindent nonumber norelativenumber";
       }
