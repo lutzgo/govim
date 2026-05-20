@@ -10,9 +10,6 @@
     # Fuzzy search is too useful to drop, even in minimal.
     telescope.enable = true;
 
-    # Filetree off by default – open with a keybind if you need it.
-    filetree.nvimTree.enable = false;
-
     # Nothing else. Anything language-specific belongs in `default` or
     # `maximal`.
   };

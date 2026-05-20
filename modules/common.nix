@@ -93,11 +93,6 @@
       setupOpts.cmdline.enabled = true;
     };
 
-    # ── File tree ─────────────────────────────────────────────────────
-    # nvf's openOnSetup defaults to true – force it off globally so the
-    # tree never opens automatically. Toggle with <leader>e.
-    filetree.nvimTree.openOnSetup = false;
-
     # ── which-key ─────────────────────────────────────────────────────
     binds.whichKey.enable = true;
 
@@ -155,9 +150,6 @@
       # ── Location list (Primeagen <leader>k / <leader>j) ───────────
       { key = "<leader>k"; action = "<cmd>lnext<CR>zz"; mode = ["n"]; desc = "Location list next"; silent = true; }
       { key = "<leader>j"; action = "<cmd>lprev<CR>zz"; mode = ["n"]; desc = "Location list prev"; silent = true; }
-
-      # ── File explorer ──────────────────────────────────────────────
-      { key = "<leader>e"; action = "<cmd>NvimTreeToggle<CR>"; mode = ["n"]; desc = "Toggle file explorer"; silent = true; }
 
       # ── Telescope ─────────────────────────────────────────────────
       # <leader>f* = find,  <leader>p* = project search,  <C-p> = git files

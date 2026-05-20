@@ -98,7 +98,10 @@ in {
   vim = {
     statusline.lualine.enable = true;
     telescope.enable = true;
-    filetree.nvimTree.enable = true;
+
+    # Override common.nix: default variant uses snacks for dashboard + notify.
+    dashboard.alpha.enable = lib.mkForce false;
+    notify.nvim-notify.enable = lib.mkForce false;
 
     # ── LSP ───────────────────────────────────────────────────────────────
     lsp = {
@@ -141,12 +144,11 @@ in {
     git.neogit.enable = true;
 
     # ── Visuals ───────────────────────────────────────────────────────────
-    visuals.indent-blankline.enable = true;
+    # indent-blankline replaced by snacks.indent (scope animation + guides).
     visuals.nvim-web-devicons.enable = true;
 
     # ── Misc niceties ─────────────────────────────────────────────────────
     autopairs.nvim-autopairs.enable = true;
-    comments.comment-nvim.enable = true;
 
     # ── Debugging ─────────────────────────────────────────────────────────
     debugger.nvim-dap = {
@@ -156,14 +158,6 @@ in {
 
     # ── Extras ────────────────────────────────────────────────────────────
     utility.smart-splits.enable = true;
-    session.nvim-session-manager.enable = true;
-    # Disable auto-restore so nvim always opens with the dashboard.
-    # Sessions can still be saved/loaded manually via :SessionManager.
-    luaConfigRC."session-no-autoload" = lib.nvim.dag.entryAnywhere ''
-      require('session_manager').setup({
-        autoload_mode = require('session_manager.config').AutoloadMode.Disabled,
-      })
-    '';
 
     # ── Globals ───────────────────────────────────────────────────────────
     # sqlite_clib_path must be set before sqlite.lua is first required
@@ -283,6 +277,117 @@ in {
       vim-gnupg = {
         package = pkgs.vimPlugins.vim-gnupg;
         setup = "";
+      };
+
+      # oil.nvim: edit the filesystem like a buffer (rename/delete/create
+      # by typing). Replaces nvim-tree. Toggle float with <leader>e.
+      # Disable <C-h>/<C-l> in oil buffers – those are our window nav keys.
+      oil-nvim = {
+        package = pkgs.vimPlugins.oil-nvim;
+        setup = ''
+          require('oil').setup({
+            default_file_explorer = true,
+            view_options = { show_hidden = true },
+            float = { max_width = 80, max_height = 30 },
+            keymaps = {
+              ["<C-h>"] = false,
+              ["<C-l>"] = false,
+            },
+          })
+        '';
+      };
+
+      # persistence.nvim: minimal session save/restore (auto-saves on exit,
+      # load manually). Replaces nvim-session-manager.
+      persistence-nvim = {
+        package = pkgs.vimPlugins.persistence-nvim;
+        setup = "require('persistence').setup()";
+      };
+
+      # telescope-fzf-native: C-backed fzf sorter for telescope – faster
+      # fuzzy matching on large projects. Overrides both generic and file
+      # sorters; smart_case mirrors fd/ripgrep conventions.
+      telescope-fzf-native = {
+        package = pkgs.vimPlugins.telescope-fzf-native-nvim;
+        setup = ''
+          require('telescope').setup({
+            extensions = {
+              fzf = {
+                fuzzy = true,
+                override_generic_sorter = true,
+                override_file_sorter = true,
+                case_mode = "smart_case",
+              },
+            },
+          })
+          require('telescope').load_extension('fzf')
+        '';
+      };
+
+      # snacks.nvim: replaces alpha (dashboard), nvim-notify (notifier),
+      # and indent-blankline (indent).  Also adds input + words.
+      # noice is kept for cmdline/search UI and routes vim.notify() calls
+      # through snacks.notifier automatically once it is loaded.
+      snacks-nvim = {
+        package = pkgs.vimPlugins.snacks-nvim;
+        setup = ''
+          require('snacks').setup({
+            -- ── Dashboard (replaces alpha-nvim) ──────────────────────────
+            dashboard = {
+              enabled = true,
+              preset = {
+                header = [[
+  ╔╗╔┌─┐┌─┐┬  ┬┬┌┬┐
+  ║║║├┤ │ │└┐┌┘││││
+  ╝╚╝└─┘└─┘ └┘ ┴┴ ┴]],
+                keys = {
+                  { icon = " ",  key = "f", desc = "Find File",       action = ":Telescope find_files" },
+                  { icon = " ",  key = "g", desc = "Live Grep",       action = ":Telescope live_grep" },
+                  { icon = "󰋚 ", key = "r", desc = "Recent Files",   action = ":Telescope oldfiles" },
+                  { icon = " ",  key = "n", desc = "New File",        action = ":ene | startinsert" },
+                  { icon = " ",  key = "s", desc = "Restore Session", action = ":lua require('persistence').load()" },
+                  { icon = "󰗼 ", key = "q", desc = "Quit",            action = ":qa" },
+                },
+              },
+              sections = {
+                { section = "header",   padding = { 3, 0 } },
+                {
+                  section = "terminal",
+                  -- nushell is vim.o.shell; force POSIX sh for date formatting.
+                  cmd     = [[sh -c 'date "+  %A, %d %B %Y"']],
+                  height  = 1,
+                  padding = { 0, 0, 2, 0 },
+                },
+                { section = "keys",    gap = 1,  padding = { 0, 0, 2, 0 } },
+                {
+                  icon    = "󰋚 ",
+                  title   = "Recent",
+                  section = "recent_files",
+                  indent  = 2,
+                  padding = { 0, 0, 1, 0 },
+                  limit   = 5,
+                },
+                -- snacks' built-in "startup" section requires lazy.nvim – omitted.
+              },
+            },
+            -- ── Notifier (replaces nvim-notify) ──────────────────────────
+            notifier = {
+              enabled = true,
+              timeout = 3000,
+              style   = "compact",
+            },
+            -- ── Indent (replaces indent-blankline) ────────────────────────
+            indent = {
+              enabled = true,
+              animate = { enabled = true },
+              scope   = { enabled = true },
+            },
+            -- ── Input (enhanced vim.ui.input for LSP rename, etc.) ────────
+            input = { enabled = true },
+            -- ── Words (highlight all occurrences of word under cursor) ─────
+            words = { enabled = true },
+          })
+        '';
       };
     };
 
@@ -541,6 +646,13 @@ in {
       (km "<leader>olo" "function() require('orgmode').action('clock.org_clock_out') end" "Clock: out")
       (km "<leader>olq" "function() require('orgmode').action('clock.org_clock_cancel') end" "Clock: cancel")
       (km "<leader>olc" "function() require('orgmode').action('clock.org_clock_goto') end" "Clock: goto active")
+
+      # ── File explorer ─────────────────────────────────────────────────
+      (km "<leader>e" "function() require('oil').open_float() end" "File explorer (oil float)")
+
+      # ── Session ───────────────────────────────────────────────────────
+      (km "<leader>ss" "function() require('persistence').load() end" "Session: restore")
+      (km "<leader>sl" "function() require('persistence').load({ last = true }) end" "Session: last")
     ];
 
     # ── Filetype autocmds ─────────────────────────────────────────────────
