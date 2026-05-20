@@ -12,6 +12,7 @@
 - [Guides](guides/README.md)
   - [Org Workflow](guides/org-workflow.md)
   - [Habit Tracking](guides/org-habits.md)
+  - [CalDAV Sync](guides/caldav-sync.md)
 
 ---
 

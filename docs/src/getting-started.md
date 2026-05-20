@@ -4,13 +4,10 @@
 
 ```sh
 # Minimal — ideal for SSH sessions
-nix run github:<you>/<repo>#minimal -- file.txt
+nix run github:lutzgo/govim#minimal -- file.txt
 
 # Default IDE
-nix run github:<you>/<repo>
-
-# Org variant
-nix run github:<you>/<repo>#org
+nix run github:lutzgo/govim
 ```
 
 Add the nvf cache first to avoid building plugins from source:
@@ -43,7 +40,7 @@ Or use the home-manager module for a cleaner interface:
 
   programs.my-nvim = {
     enable = true;
-    variant = "default";  # minimal | markdown | default | maximal | org
+    variant = "default";  # minimal | default
   };
 }
 ```
@@ -62,11 +59,12 @@ home.persistence."/persist/home/<user>" = {
 };
 ```
 
-For the org variant, also persist:
+For org and CalDAV sync, also persist:
 
 ```nix
-"citizengo/notes"              # Nextcloud-synced org content
-".local/share/org-roam.nvim"  # roam DB (rebuild with :OrgRoamSyncDatabase if lost)
+"citizengo/note"                # Nextcloud-synced org content
+".local/share/org-roam.nvim"   # roam DB (rebuild with :OrgRoamSyncDatabase if lost)
+".local/share/vdirsyncer"       # vdir collections + CalDAV sync status
 ```
 
 ## Developing
