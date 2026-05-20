@@ -93,6 +93,7 @@ in {
     ../languages/typescript.nix
     ../languages/go.nix
     ../languages/org.nix
+    ../languages/typst.nix
   ];
 
   vim = {
@@ -159,6 +160,11 @@ in {
     # ── Extras ────────────────────────────────────────────────────────────
     utility.smart-splits.enable = true;
 
+    # ── Extra runtime binaries ────────────────────────────────────────────
+    # pandoc: used by org_export() Lua helper for org→{html,docx,md,typst}.
+    # typst + tinymist come from modules/languages/typst.nix.
+    extraPackages = [pkgs.pandoc];
+
     # ── Globals ───────────────────────────────────────────────────────────
     # sqlite_clib_path must be set before sqlite.lua is first required
     # (org-roam loads it at startup). Nix store path is baked in at build.
@@ -200,9 +206,10 @@ in {
         };
       };
 
-      # Suppress orgmode's built-in clock defaults so that clock operations
-      # live exclusively under our <leader>ol* namespace.
+      # Suppress orgmode built-in mappings that conflict with our namespaces.
+      # <leader>oe* is our pandoc export group; <leader>ol* is our clock group.
       mappings.org = {
+        org_export = false;
         org_clock_in = false;
         org_clock_out = false;
         org_clock_cancel = false;
@@ -352,10 +359,9 @@ in {
               sections = {
                 { section = "header",   padding = { 3, 0 } },
                 {
-                  section = "terminal",
-                  -- nushell is vim.o.shell; force POSIX sh for date formatting.
-                  cmd     = [[sh -c 'date "+  %A, %d %B %Y"']],
-                  height  = 1,
+                  -- Use Lua os.date to avoid any shell dependency (nushell has
+                  -- an incompatible built-in `date` that rejects POSIX format args).
+                  text    = { { os.date("  %A, %d %B %Y"), hl = "Comment" } },
                   padding = { 0, 0, 2, 0 },
                 },
                 { section = "keys",    gap = 1,  padding = { 0, 0, 2, 0 } },
@@ -494,6 +500,70 @@ in {
       end
     '';
 
+    luaConfigRC."org-export" = lib.nvim.dag.entryAnywhere ''
+      -- org_export(fmt, ext)
+      --   fmt : pandoc output format string (e.g. "html5", "docx", "gfm", "typst")
+      --   ext : file extension for the output (e.g. "html", "docx", "md", "typ")
+      --
+      -- Reads the current buffer path, runs pandoc asynchronously, and notifies
+      -- on success or failure.  The output lands next to the source file.
+      _G.org_export = function(fmt, ext)
+        local src = vim.api.nvim_buf_get_name(0)
+        if src == "" then
+          vim.notify("org-export: buffer has no file path", vim.log.levels.WARN)
+          return
+        end
+        local out = vim.fn.fnamemodify(src, ':r') .. '.' .. ext
+        local cmd = { 'pandoc', '--from=org', '--to=' .. fmt, src, '-o', out }
+        vim.notify('Exporting → ' .. vim.fn.fnamemodify(out, ':t') .. ' …', vim.log.levels.INFO)
+        vim.fn.jobstart(cmd, {
+          on_exit = function(_, code)
+            if code == 0 then
+              vim.notify('Export done: ' .. out, vim.log.levels.INFO)
+            else
+              vim.notify('pandoc exited with code ' .. code, vim.log.levels.ERROR)
+            end
+          end,
+        })
+      end
+
+      -- org_export_pdf(): org → typst (pandoc) → pdf (typst compile), two async steps.
+      -- The intermediate .typ file lands beside the source; only the .pdf is kept on
+      -- success (the .typ is deleted afterwards so it does not clutter the notes dir).
+      _G.org_export_pdf = function()
+        local src = vim.api.nvim_buf_get_name(0)
+        if src == "" then
+          vim.notify("org-export: buffer has no file path", vim.log.levels.WARN)
+          return
+        end
+        local base = vim.fn.fnamemodify(src, ':r')
+        local typ  = base .. '.typ'
+        local pdf  = base .. '.pdf'
+        vim.notify('PDF export: converting to Typst …', vim.log.levels.INFO)
+        -- Step 1: pandoc org → typst
+        vim.fn.jobstart({ 'pandoc', '--from=org', '--to=typst', src, '-o', typ }, {
+          on_exit = function(_, code1)
+            if code1 ~= 0 then
+              vim.notify('pandoc failed (code ' .. code1 .. ')', vim.log.levels.ERROR)
+              return
+            end
+            vim.notify('Compiling Typst → PDF …', vim.log.levels.INFO)
+            -- Step 2: typst compile typst → pdf
+            vim.fn.jobstart({ 'typst', 'compile', typ, pdf }, {
+              on_exit = function(_, code2)
+                vim.fn.delete(typ)   -- remove intermediate .typ regardless
+                if code2 == 0 then
+                  vim.notify('PDF ready: ' .. pdf, vim.log.levels.INFO)
+                else
+                  vim.notify('typst compile failed (code ' .. code2 .. ')', vim.log.levels.ERROR)
+                end
+              end,
+            })
+          end,
+        })
+      end
+    '';
+
     luaConfigRC."org-whichkey" = lib.nvim.dag.entryAnywhere ''
       local ok, wk = pcall(require, 'which-key')
       if ok then
@@ -506,6 +576,7 @@ in {
           { "<leader>os", group = "Search" },
           { "<leader>ol", group = "Clock" },
           { "<leader>o-", desc  = "Insert item/heading" },
+          { "<leader>oe", group = "Export (pandoc)" },
         })
       end
     '';
@@ -637,6 +708,13 @@ in {
       (km "<leader>osh" "function() require('telescope').extensions.orgmode.search_headings() end" "Search: headings")
       (km "<leader>osg" ''function() require('telescope.builtin').live_grep({ search_dirs = { vim.fn.expand('~/citizengo/notes/') }, prompt_title = 'Grep Org' }) end'' "Search: grep org files")
       (km "<leader>osl" "function() _G.org_insert_file_link() end" "Search: insert org link")
+
+      # ── Export (<leader>oe*) ──────────────────────────────────────────
+      (km "<leader>oeh" "function() _G.org_export('html5',  'html') end"  "Export: HTML")
+      (km "<leader>oed" "function() _G.org_export('docx',   'docx') end"  "Export: DOCX")
+      (km "<leader>oem" "function() _G.org_export('gfm',    'md')   end"  "Export: Markdown (GFM)")
+      (km "<leader>oet" "function() _G.org_export('typst',  'typ')  end"  "Export: Typst source")
+      (km "<leader>oep" "function() _G.org_export_pdf() end"              "Export: PDF (via Typst)")
 
       # ── Misc ──────────────────────────────────────────────────────────
       (km "<leader>o-" "function() require('orgmode').action('org_mappings.meta_return') end" "Insert item/heading (context-aware)")
