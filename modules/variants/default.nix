@@ -162,8 +162,9 @@ in {
 
     # ── Extra runtime binaries ────────────────────────────────────────────
     # pandoc: used by org_export() Lua helper for org→{html,docx,md,typst}.
+    # khal:   CalDAV calendar viewer, opened via <leader>oak.
     # typst + tinymist come from modules/languages/typst.nix.
-    extraPackages = [pkgs.pandoc];
+    extraPackages = [pkgs.pandoc pkgs.khal];
 
     # ── Globals ───────────────────────────────────────────────────────────
     # sqlite_clib_path must be set before sqlite.lua is first required
@@ -577,6 +578,7 @@ in {
           { "<leader>ol", group = "Clock" },
           { "<leader>o-", desc  = "Insert item/heading" },
           { "<leader>oe", group = "Export (pandoc)" },
+          { "<leader>oa", group = "Agenda / Calendar" },
         })
       end
     '';
@@ -702,6 +704,8 @@ in {
       (km "<leader>oaa" "function() require('orgmode').action('agenda.prompt') end" "Agenda: dispatcher")
       (km "<leader>oat" "function() require('orgmode').action('agenda.todos') end" "Agenda: TODO list")
       (km "<leader>oaw" "function() require('orgmode').action('agenda.agenda') end" "Agenda: week view")
+      (km "<leader>oak" ''function() require('snacks').terminal({'khal', 'interactive'}, { win = { width = 0.85, height = 0.85 } }) end'' "Agenda: khal calendar")
+      (km "<leader>oas" ''function() vim.fn.jobstart({'systemctl', '--user', 'start', 'vdirsyncer.service'}, { on_exit = function(_, code) if code == 0 then vim.notify('CalDAV sync triggered', vim.log.levels.INFO) else vim.notify('Sync trigger failed', vim.log.levels.ERROR) end end }) end'' "Agenda: trigger CalDAV sync")
 
       # ── Search (<leader>os*) ──────────────────────────────────────────
       (km "<leader>osf" ''function() require('telescope.builtin').find_files({ search_dirs = { vim.fn.expand('~/citizengo/notes/') }, prompt_title = 'Org Files' }) end'' "Search: find org files")
