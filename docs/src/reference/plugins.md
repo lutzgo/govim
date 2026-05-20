@@ -89,6 +89,7 @@ Each language enables: treesitter grammar + LSP server + formatter.
 | Rust | rust-analyzer | rustfmt | crates-nvim (crate version hints) |
 | TypeScript / JavaScript | typescript-language-server | prettier | — |
 | Go | gopls | gofmt | — |
+| Typst | tinymist | typstyle | export PDF with `<leader>oep` |
 | HTML | vscode-html-languageserver | — | — |
 | CSS | vscode-css-languageserver | — | — |
 | YAML | yaml-language-server | — | — |
@@ -116,6 +117,8 @@ In-buffer markdown rendering (headings, tables, code blocks) via
 | [vim-gnupg](https://github.com/jamessan/vim-gnupg) | Transparent read/write of `.org.gpg` files |
 | [sqlite.lua](https://github.com/kkharji/sqlite.lua) | SQLite backend for org-roam's node database |
 | tree-sitter-org v2.0.2 | Correct org grammar (nvim-orgmode/tree-sitter-org) |
+| pandoc | Export org → HTML / DOCX / Markdown / Typst (`<leader>oe*`) |
+| typst + tinymist | Compile Typst → PDF; also the LSP for `.typ` files |
 
 ---
 

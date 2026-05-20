@@ -123,6 +123,19 @@ Leader: `Space` · Localleader: `,`
 | `<leader>olq` | Cancel clock |
 | `<leader>olc` | Jump to active clock |
 
+### Export (`<leader>oe`)
+
+Powered by **pandoc** (org → target format) and **typst** (for PDF).
+Output files land next to the source `.org` file.
+
+| Key | Action |
+|-----|--------|
+| `<leader>oeh` | Export → HTML |
+| `<leader>oed` | Export → DOCX |
+| `<leader>oem` | Export → Markdown (GFM) |
+| `<leader>oet` | Export → Typst source (`.typ`) |
+| `<leader>oep` | Export → PDF (pandoc → typst → compile) |
+
 ### Misc
 
 | Key | Action |
