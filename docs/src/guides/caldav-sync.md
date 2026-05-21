@@ -95,7 +95,7 @@ clanarchy.caldavSync = {
   nextcloudHost = "citizengo.io";   # hostname without https://
   username      = "lgo";
   calendarName  = "lgo";            # CalDAV collection slug in Nextcloud
-  orgNoteDir    = "citizengo/note"; # relative to ~
+  orgNoteDir    = "citizengo/notes"; # relative to ~
   syncFiles     = [ "todo.org" "habits.org" ];
 };
 ```
