@@ -61,7 +61,27 @@ plain text.
 deploy   # or: nixos-rebuild switch --flake .#miralda
 ```
 
-The systemd path unit and timer start automatically after deployment.
+The systemd path unit and timer are installed automatically after deployment.
+
+### 4. Discover CalDAV collections (one-time)
+
+vdirsyncer needs to map the local collection name to the remote calendar slug.
+Run this once before the first sync:
+
+```sh
+vdirsyncer discover org_push
+```
+
+If no remote collection named `calendarName` exists yet, vdirsyncer will ask
+whether to create it — answer **y**. The discovery result is saved to
+`~/.local/share/vdirsyncer/status/` and survives reboots (persist that
+directory — see [Impermanence](#impermanence)).
+
+After discovery, trigger the first sync manually to verify everything works:
+
+```sh
+vdirsyncer sync org_push
+```
 
 ---
 
