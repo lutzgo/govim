@@ -162,7 +162,7 @@ in {
 
     # ── Extra runtime binaries ────────────────────────────────────────────
     # pandoc: used by org_export() Lua helper for org→{html,docx,md,typst}.
-    # khal:   CalDAV calendar viewer, opened via <leader>oak.
+    # khal:   CalDAV calendar viewer, opened via <leader>ok.
     # typst + tinymist come from modules/languages/typst.nix.
     extraPackages = [pkgs.pandoc pkgs.khal];
 
@@ -578,7 +578,8 @@ in {
           { "<leader>ol", group = "Clock" },
           { "<leader>o-", desc  = "Insert item/heading" },
           { "<leader>oe", group = "Export (pandoc)" },
-          { "<leader>oa", group = "Agenda / Calendar" },
+          { "<leader>ok", desc  = "khal interactive calendar" },
+          { "<leader>ov", desc  = "CalDAV sync (vdirsyncer)" },
         })
       end
     '';
@@ -701,11 +702,16 @@ in {
       (km "<leader>ocn" "function() require('orgmode').action('capture.open_template_by_shortcut', 'n') end" "Capture: note")
 
       # ── Agenda (<leader>oa*) ──────────────────────────────────────────
+      # Note: <leader>oa is orgmode's agenda dispatcher — it intercepts all
+      # following keys internally.  Only use known orgmode keys under this prefix.
       (km "<leader>oaa" "function() require('orgmode').action('agenda.prompt') end" "Agenda: dispatcher")
       (km "<leader>oat" "function() require('orgmode').action('agenda.todos') end" "Agenda: TODO list")
       (km "<leader>oaw" "function() require('orgmode').action('agenda.agenda') end" "Agenda: week view")
-      (km "<leader>oak" ''function() require('snacks').terminal({'khal', 'interactive'}, { win = { width = 0.85, height = 0.85 } }) end'' "Agenda: khal calendar")
-      (km "<leader>oas" ''function() vim.fn.jobstart({'systemctl', '--user', 'start', 'vdirsyncer.service'}, { on_exit = function(_, code) if code == 0 then vim.notify('CalDAV sync triggered', vim.log.levels.INFO) else vim.notify('Sync trigger failed', vim.log.levels.ERROR) end end }) end'' "Agenda: trigger CalDAV sync")
+
+      # ── CalDAV / khal (<leader>ok, <leader>ov) ───────────────────────────
+      # Kept outside <leader>oa* to avoid the orgmode agenda dispatcher.
+      (km "<leader>ok" ''function() require('snacks').terminal({'khal', 'interactive'}, { win = { width = 0.85, height = 0.85 } }) end'' "khal: interactive calendar")
+      (km "<leader>ov" ''function() vim.fn.jobstart({'systemctl', '--user', 'start', 'vdirsyncer.service'}, { on_exit = function(_, code) if code == 0 then vim.notify('CalDAV sync triggered', vim.log.levels.INFO) else vim.notify('Sync trigger failed', vim.log.levels.ERROR) end end }) end'' "CalDAV: trigger vdirsyncer sync")
 
       # ── Search (<leader>os*) ──────────────────────────────────────────
       (km "<leader>osf" ''function() require('telescope.builtin').find_files({ search_dirs = { vim.fn.expand('~/citizengo/notes/') }, prompt_title = 'Org Files' }) end'' "Search: find org files")

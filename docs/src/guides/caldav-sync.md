@@ -110,8 +110,11 @@ calendar visible under your Nextcloud CalDAV URL:
 
 | Key | Action |
 |-----|--------|
-| `<leader>oak` | Open `khal interactive` (CLI calendar view) |
-| `<leader>oas` | Trigger an immediate vdirsyncer push |
+| `<leader>ok` | Open `khal interactive` (CLI calendar view) |
+| `<leader>ov` | Trigger an immediate vdirsyncer push |
+
+> **Note**: These are intentionally outside the `<leader>oa` prefix, which is
+> owned by nvim-orgmode's agenda dispatcher and intercepts all following keys.
 
 ---
 
