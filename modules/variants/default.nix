@@ -179,7 +179,15 @@ in {
     # languages/org.nix enables the plugin + treesitter grammar.
     # setupOpts is passed verbatim to require('orgmode').setup().
     notes.orgmode.setupOpts = {
-      org_agenda_files = ["~/citizengo/notes/**/*"];
+      org_agenda_files = [
+        "~/citizengo/notes/inbox.org"
+        "~/citizengo/notes/todo.org"
+        "~/citizengo/notes/projects.org"
+        "~/citizengo/notes/someday.org"
+        "~/citizengo/notes/archive.org"
+        "~/citizengo/notes/habits.org"
+        "~/citizengo/notes/journal/**/*"
+      ];
       org_todo_keywords = ["TODO" "IN-PROGRESS" "WAITING" "|" "DONE" "CANCELLED"];
       org_startup_folded = "content";
       org_startup_indented = true;
@@ -187,8 +195,13 @@ in {
       # org-habit: enables habit tracking and the agenda consistency graph.
       org_modules = ["org-habit"];
 
+      # Default archive target: all subtrees archived to archive.org at top level.
+      # Override per-file with #+ARCHIVE: property if needed.
+      org_archive_location = "~/citizengo/notes/archive.org::";
+
       # Capture templates  (<leader>occ to open the dispatcher).
-      # Keys: j=journal (today's daily)  t=task  n=note.
+      # Keys: j=journal  t=inbox task  w=work task  p=project  s=someday  n=note.
+      # Capture flow: t/w/n land in inbox/todo; p in projects.org; s in someday.org.
       org_capture_templates = {
         j = {
           description = "Journal";
@@ -196,14 +209,29 @@ in {
           target = "~/citizengo/notes/journal/%<%Y-%m-%d>.org";
         };
         t = {
-          description = "Task";
-          template = "* TODO %?\n  SCHEDULED: %t\n  %U";
+          description = "Inbox task";
+          template = "* TODO %?\n  %U";
+          target = "~/citizengo/notes/inbox.org";
+        };
+        w = {
+          description = "Work task (scheduled)";
+          template = "* TODO %? :work:\n  SCHEDULED: %t\n  %U";
           target = "~/citizengo/notes/todo.org";
+        };
+        p = {
+          description = "Project note";
+          template = "* %? [/]\n  %U";
+          target = "~/citizengo/notes/projects.org";
+        };
+        s = {
+          description = "Someday / maybe";
+          template = "* %?\n  %U";
+          target = "~/citizengo/notes/someday.org";
         };
         n = {
           description = "Note";
           template = "* %? :idea:\n  %U";
-          target = "~/citizengo/notes/notes.org";
+          target = "~/citizengo/notes/inbox.org";
         };
       };
 
@@ -339,61 +367,61 @@ in {
       snacks-nvim = {
         package = pkgs.vimPlugins.snacks-nvim;
         setup = ''
-          require('snacks').setup({
-            -- ── Dashboard (replaces alpha-nvim) ──────────────────────────
-            dashboard = {
-              enabled = true,
-              preset = {
-                header = [[
-  ╔╗╔┌─┐┌─┐┬  ┬┬┌┬┐
-  ║║║├┤ │ │└┐┌┘││││
-  ╝╚╝└─┘└─┘ └┘ ┴┴ ┴]],
-                keys = {
-                  { icon = " ",  key = "f", desc = "Find File",       action = ":Telescope find_files" },
-                  { icon = " ",  key = "g", desc = "Live Grep",       action = ":Telescope live_grep" },
-                  { icon = "󰋚 ", key = "r", desc = "Recent Files",   action = ":Telescope oldfiles" },
-                  { icon = " ",  key = "n", desc = "New File",        action = ":ene | startinsert" },
-                  { icon = " ",  key = "s", desc = "Restore Session", action = ":lua require('persistence').load()" },
-                  { icon = "󰗼 ", key = "q", desc = "Quit",            action = ":qa" },
-                },
-              },
-              sections = {
-                { section = "header",   padding = { 3, 0 } },
-                {
-                  -- Use Lua os.date to avoid any shell dependency (nushell has
-                  -- an incompatible built-in `date` that rejects POSIX format args).
-                  text    = { { os.date("  %A, %d %B %Y"), hl = "Comment" } },
-                  padding = { 0, 0, 2, 0 },
-                },
-                { section = "keys",    gap = 1,  padding = { 0, 0, 2, 0 } },
-                {
-                  icon    = "󰋚 ",
-                  title   = "Recent",
-                  section = "recent_files",
-                  indent  = 2,
-                  padding = { 0, 0, 1, 0 },
-                  limit   = 5,
-                },
-                -- snacks' built-in "startup" section requires lazy.nvim – omitted.
-              },
-            },
-            -- ── Notifier (replaces nvim-notify) ──────────────────────────
-            notifier = {
-              enabled = true,
-              timeout = 3000,
-              style   = "compact",
-            },
-            -- ── Indent (replaces indent-blankline) ────────────────────────
-            indent = {
-              enabled = true,
-              animate = { enabled = true },
-              scope   = { enabled = true },
-            },
-            -- ── Input (enhanced vim.ui.input for LSP rename, etc.) ────────
-            input = { enabled = true },
-            -- ── Words (highlight all occurrences of word under cursor) ─────
-            words = { enabled = true },
-          })
+                  require('snacks').setup({
+                    -- ── Dashboard (replaces alpha-nvim) ──────────────────────────
+                    dashboard = {
+                      enabled = true,
+                      preset = {
+                        header = [[
+          ╔╗╔┌─┐┌─┐┬  ┬┬┌┬┐
+          ║║║├┤ │ │└┐┌┘││││
+          ╝╚╝└─┘└─┘ └┘ ┴┴ ┴]],
+                        keys = {
+                          { icon = " ",  key = "f", desc = "Find File",       action = ":Telescope find_files" },
+                          { icon = " ",  key = "g", desc = "Live Grep",       action = ":Telescope live_grep" },
+                          { icon = "󰋚 ", key = "r", desc = "Recent Files",   action = ":Telescope oldfiles" },
+                          { icon = " ",  key = "n", desc = "New File",        action = ":ene | startinsert" },
+                          { icon = " ",  key = "s", desc = "Restore Session", action = ":lua require('persistence').load()" },
+                          { icon = "󰗼 ", key = "q", desc = "Quit",            action = ":qa" },
+                        },
+                      },
+                      sections = {
+                        { section = "header",   padding = { 3, 0 } },
+                        {
+                          -- Use Lua os.date to avoid any shell dependency (nushell has
+                          -- an incompatible built-in `date` that rejects POSIX format args).
+                          text    = { { os.date("  %A, %d %B %Y"), hl = "Comment" } },
+                          padding = { 0, 0, 2, 0 },
+                        },
+                        { section = "keys",    gap = 1,  padding = { 0, 0, 2, 0 } },
+                        {
+                          icon    = "󰋚 ",
+                          title   = "Recent",
+                          section = "recent_files",
+                          indent  = 2,
+                          padding = { 0, 0, 1, 0 },
+                          limit   = 5,
+                        },
+                        -- snacks' built-in "startup" section requires lazy.nvim – omitted.
+                      },
+                    },
+                    -- ── Notifier (replaces nvim-notify) ──────────────────────────
+                    notifier = {
+                      enabled = true,
+                      timeout = 3000,
+                      style   = "compact",
+                    },
+                    -- ── Indent (replaces indent-blankline) ────────────────────────
+                    indent = {
+                      enabled = true,
+                      animate = { enabled = true },
+                      scope   = { enabled = true },
+                    },
+                    -- ── Input (enhanced vim.ui.input for LSP rename, etc.) ────────
+                    input = { enabled = true },
+                    -- ── Words (highlight all occurrences of word under cursor) ─────
+                    words = { enabled = true },
+                  })
         '';
       };
     };
@@ -577,6 +605,7 @@ in {
           { "<leader>os", group = "Search" },
           { "<leader>ol", group = "Clock" },
           { "<leader>o-", desc  = "Insert item/heading" },
+          { "<leader>oA", desc  = "Archive subtree → archive.org" },
           { "<leader>oe", group = "Export (pandoc)" },
           { "<leader>ok", desc  = "khal interactive calendar" },
           { "<leader>ov", desc  = "CalDAV sync (vdirsyncer)" },
@@ -601,6 +630,8 @@ in {
           bkm(',p',  function() require('orgmode').action('org_mappings.set_priority') end,    "Set priority")
           bkm(',x',  function() require('orgmode').action('org_mappings.toggle_checkbox') end, "Toggle checkbox")
           bkm(',*',  function() require('orgmode').action('org_mappings.toggle_heading') end,  "Toggle heading")
+          -- Archive
+          bkm(',A',  function() require('orgmode').action('org_mappings.org_archive_subtree') end, "Archive subtree → archive.org")
           -- Tags
           bkm(',gt', function() require('orgmode').action('org_mappings.set_tags') end,        "Set tags")
           -- Clocking (,c* mirrors global <leader>ol*)
@@ -698,8 +729,11 @@ in {
       # ── Capture (<leader>oc*) ─────────────────────────────────────────
       (km "<leader>occ" "function() require('orgmode').action('capture.prompt') end" "Capture: dispatcher")
       (km "<leader>ocj" "function() require('orgmode').action('capture.open_template_by_shortcut', 'j') end" "Capture: journal")
-      (km "<leader>oct" "function() require('orgmode').action('capture.open_template_by_shortcut', 't') end" "Capture: task")
-      (km "<leader>ocn" "function() require('orgmode').action('capture.open_template_by_shortcut', 'n') end" "Capture: note")
+      (km "<leader>oct" "function() require('orgmode').action('capture.open_template_by_shortcut', 't') end" "Capture: inbox task")
+      (km "<leader>ocw" "function() require('orgmode').action('capture.open_template_by_shortcut', 'w') end" "Capture: work task (scheduled)")
+      (km "<leader>ocp" "function() require('orgmode').action('capture.open_template_by_shortcut', 'p') end" "Capture: project note")
+      (km "<leader>ocs" "function() require('orgmode').action('capture.open_template_by_shortcut', 's') end" "Capture: someday / maybe")
+      (km "<leader>ocn" "function() require('orgmode').action('capture.open_template_by_shortcut', 'n') end" "Capture: note → inbox")
 
       # ── Agenda (<leader>oa*) ──────────────────────────────────────────
       # Note: <leader>oa is orgmode's agenda dispatcher — it intercepts all
@@ -720,11 +754,14 @@ in {
       (km "<leader>osl" "function() _G.org_insert_file_link() end" "Search: insert org link")
 
       # ── Export (<leader>oe*) ──────────────────────────────────────────
-      (km "<leader>oeh" "function() _G.org_export('html5',  'html') end"  "Export: HTML")
-      (km "<leader>oed" "function() _G.org_export('docx',   'docx') end"  "Export: DOCX")
-      (km "<leader>oem" "function() _G.org_export('gfm',    'md')   end"  "Export: Markdown (GFM)")
-      (km "<leader>oet" "function() _G.org_export('typst',  'typ')  end"  "Export: Typst source")
-      (km "<leader>oep" "function() _G.org_export_pdf() end"              "Export: PDF (via Typst)")
+      (km "<leader>oeh" "function() _G.org_export('html5',  'html') end" "Export: HTML")
+      (km "<leader>oed" "function() _G.org_export('docx',   'docx') end" "Export: DOCX")
+      (km "<leader>oem" "function() _G.org_export('gfm',    'md')   end" "Export: Markdown (GFM)")
+      (km "<leader>oet" "function() _G.org_export('typst',  'typ')  end" "Export: Typst source")
+      (km "<leader>oep" "function() _G.org_export_pdf() end" "Export: PDF (via Typst)")
+
+      # ── Archive (<leader>oA) ──────────────────────────────────────────
+      (km "<leader>oA" "function() require('orgmode').action('org_mappings.org_archive_subtree') end" "Archive subtree → archive.org")
 
       # ── Misc ──────────────────────────────────────────────────────────
       (km "<leader>o-" "function() require('orgmode').action('org_mappings.meta_return') end" "Insert item/heading (context-aware)")
