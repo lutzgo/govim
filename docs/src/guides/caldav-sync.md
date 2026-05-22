@@ -92,17 +92,44 @@ All options are in `modules/users/lgo.nix` under `clanarchy.caldavSync`:
 ```nix
 clanarchy.caldavSync = {
   enable        = true;
-  nextcloudHost = "citizengo.io";   # hostname without https://
+  nextcloudHost = "citizengo.io";        # hostname without https://
   username      = "lgo";
-  calendarName  = "lgo";            # CalDAV collection slug in Nextcloud
-  orgNoteDir    = "citizengo/notes"; # relative to ~
+  calendarName  = "lgorg2";              # CalDAV collection slug in Nextcloud
+  orgNoteDir    = "citizengo/notes";     # relative to ~
   syncFiles     = [ "todo.org" "habits.org" ];
+  journalDir    = "citizengo/notes/journal"; # org-roam dailies → VJOURNAL
 };
 ```
 
 To change the target calendar, update `calendarName` to the slug of any
 calendar visible under your Nextcloud CalDAV URL:
 `https://<host>/remote.php/dav/calendars/<user>/`.
+
+### Creating a calendar with VJOURNAL support
+
+Nextcloud creates calendars without VJOURNAL by default. If you want journal
+entries to sync (the `journalDir` option), pre-create the calendar via
+MKCALENDAR before running `vdirsyncer discover`:
+
+```sh
+curl -u "<user>:<app-password>" -X MKCALENDAR \
+  -H "Content-Type: application/xml" \
+  -d '<?xml version="1.0" encoding="utf-8"?>
+<C:mkcalendar xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:set><D:prop>
+    <D:displayname>lgorg2</D:displayname>
+    <C:supported-calendar-component-set>
+      <C:comp name="VEVENT"/>
+      <C:comp name="VTODO"/>
+      <C:comp name="VJOURNAL"/>
+    </C:supported-calendar-component-set>
+  </D:prop></D:set>
+</C:mkcalendar>' \
+  https://<host>/remote.php/dav/calendars/<user>/lgorg2/
+```
+
+Then run `vdirsyncer discover org_push` — it will find the existing
+collection and map to it without creating a new one.
 
 ---
 
