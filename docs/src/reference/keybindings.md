@@ -2,6 +2,35 @@
 
 Leader: `Space` · Localleader: `,`
 
+## Where govim sits in the host's keybind layers
+
+On a clanarchy machine four programs are stacked in one terminal, and each
+claims a different modifier so they never fight:
+
+| Layer | Modifier | Notes |
+|-------|----------|-------|
+| niri (compositor) | `Mod` (Super) | `Mod+E` launches the editor |
+| Zellij (multiplexer) | `Alt` | Autolocks on `nvim`, so every key reaches govim |
+| **govim** | `Ctrl` / `Space` / `,` | This page |
+| nushell (prompt) | Emacs keys | Only outside the editor |
+
+govim uses no `Alt` or `Super` chords, so nothing here collides. Zellij's
+autolock trigger list includes `nvim`, which means Zellij drops to locked mode
+the moment govim starts and passes `Alt` through as well — its `Alt+hjkl` pane
+navigation is unavailable while you are inside the editor, by design.
+
+A few bindings deliberately match the helix layer, because the host switches
+between govim and helix via `clanarchy.users.lgo.editor` and the muscle memory
+should survive the switch:
+
+| helix | govim | Action |
+|-------|-------|--------|
+| `<Space>/` | `<leader>/` | Global search |
+| `<Space>g` | `<leader>gl` | Lazygit (float here, foot window there) |
+| `<Space>f` | `<leader>ff` | File picker |
+| `<Space>b` | `<leader>fb` | Buffer picker |
+| `<Space>e` | `<leader>e` | File manager (oil here, yazi there) |
+
 ## All variants (common.nix)
 
 ### Navigation
@@ -25,13 +54,24 @@ Leader: `Space` · Localleader: `,`
 
 | Key | Mode | Action |
 |-----|------|--------|
-| `<leader>e` | n | Toggle file explorer (nvim-tree) |
+| `<leader>e` | n | File explorer — oil float, edits the filesystem as a buffer |
 | `<leader>ff` | n | Find files (telescope) |
 | `<leader>fg` | n | Live grep in project |
+| `<leader>/` | n | Global search — alias of `<leader>fg`, matches helix `<Space>/` |
 | `<leader>fb` | n | Find open buffer |
 | `<leader>fh` | n | Find help tag |
 | `<C-p>` | n | Git files (telescope) |
 | `<leader>ps` | n | Grep word under cursor |
+
+### Git (default variant)
+
+| Key | Mode | Action |
+|-----|------|--------|
+| `<leader>gl` | n | Lazygit in a float — matches helix `<Space>g` |
+| `<leader>gs` | n | Git status (neogit) |
+| `<leader>gc` | n | Git commit (neogit) |
+| `<leader>gp` / `<leader>gP` | n | Git pull / push (neogit) |
+| `<leader>h*` | n | Hunk actions (gitsigns): `hs` stage, `hr` reset, `hb` blame, `hd` diff |
 
 ### Editing
 

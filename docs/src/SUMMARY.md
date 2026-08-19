@@ -13,6 +13,7 @@
   - [Org Workflow](guides/org-workflow.md)
   - [Habit Tracking](guides/org-habits.md)
   - [CalDAV Sync](guides/caldav-sync.md)
+  - [clanarchy Integration](guides/clanarchy-integration.md)
 
 ---
 
