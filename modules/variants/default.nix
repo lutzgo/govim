@@ -161,10 +161,14 @@ in {
     utility.smart-splits.enable = true;
 
     # ── Extra runtime binaries ────────────────────────────────────────────
-    # pandoc: used by org_export() Lua helper for org→{html,docx,md,typst}.
-    # khal:   CalDAV calendar viewer, opened via <leader>ok.
+    # pandoc:  used by org_export() Lua helper for org→{html,docx,md,typst}.
+    # khal:    CalDAV calendar viewer, opened via <leader>ok.
+    # lazygit: git TUI, opened in a snacks float via <leader>gl. The host's
+    #          helix layer binds <Space>g to lazygit in a new foot window;
+    #          bundling the binary here means the keybind works the same way
+    #          under `nix run` on a box that has never heard of clanarchy.
     # typst + tinymist come from modules/languages/typst.nix.
-    extraPackages = [pkgs.pandoc pkgs.khal];
+    extraPackages = [pkgs.pandoc pkgs.khal pkgs.lazygit];
 
     # ── Globals ───────────────────────────────────────────────────────────
     # sqlite_clib_path must be set before sqlite.lua is first required
@@ -772,7 +776,16 @@ in {
       (km "<leader>olq" "function() require('orgmode').action('clock.org_clock_cancel') end" "Clock: cancel")
       (km "<leader>olc" "function() require('orgmode').action('clock.org_clock_goto') end" "Clock: goto active")
 
+      # ── Git ───────────────────────────────────────────────────────────
+      # <leader>g* is nvf's Neogit group (gs/gc/gp/gP); gl is free and lands
+      # lazygit in the same namespace. Mirrors the host's helix <Space>g,
+      # except it opens a float instead of spawning a foot window — inside
+      # nvim there is no reason to leave the editor.
+      (km "<leader>gl" "function() require('snacks').lazygit() end" "Lazygit (helix <Space>g)")
+
       # ── File explorer ─────────────────────────────────────────────────
+      # The nvim-native answer to helix's <Space>e (which shells out to yazi):
+      # oil edits the filesystem as a buffer, so it stays in-process.
       (km "<leader>e" "function() require('oil').open_float() end" "File explorer (oil float)")
 
       # ── Session ───────────────────────────────────────────────────────

@@ -135,11 +135,26 @@ and pushed to a CalDAV server (Nextcloud) via vdirsyncer. See
   ];
   ```
 
-- **Stylix** — when the host applies a stylix palette, the colorscheme and
-  lualine theme update automatically at startup via `ColorScheme` autocmd.
+- **Stylix** — import `nvfModules.stylix` and hand it the host palette to
+  replace the built-in catppuccin theme:
 
-- **clan** — nothing clan-specific in this repo. Reference it as a flake input
-  from any clan machine's home-manager config and pick a variant.
+  ```nix
+  programs.nvf.settings = {
+    imports = with inputs.govim.nvfModules; [ common default stylix ];
+    govim.stylix = {
+      enable = true;
+      colors = config.lib.stylix.colors;
+    };
+  };
+  ```
+
+  Importing the modules rather than installing a package is what makes this
+  possible — a built package has its colorscheme baked in. `nix flake check`
+  builds this path (`checks.stylix`) so the contract stays honest.
+
+- **clan** — nothing here requires clan, but the host wiring is documented:
+  see [clanarchy Integration](docs/src/guides/clanarchy-integration.md) for the
+  module imports, keybind layers, and impermanence paths.
 
 ## Developing
 

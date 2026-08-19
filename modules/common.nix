@@ -159,6 +159,14 @@
       { key = "<leader>fh"; action = "<cmd>Telescope help_tags<CR>";   mode = ["n"]; desc = "Find help tag";          silent = true; }
       { key = "<C-p>";      action = "<cmd>Telescope git_files<CR>";   mode = ["n"]; desc = "Git files (Primeagen)";  silent = true; }
       { key = "<leader>ps"; action = "<cmd>Telescope grep_string<CR>"; mode = ["n"]; desc = "Project search (word)"; silent = true; }
+
+      # ── Cross-editor muscle memory ────────────────────────────────
+      # The host (clanarchy) switches between govim and helix on one
+      # machine via `clanarchy.users.lgo.editor`, and helix binds
+      # <Space>/ to global_search. Same key, same job, so a switch does
+      # not cost a relearn. <leader>fg is the same picker under the
+      # find group; this is the alias, not a second implementation.
+      { key = "<leader>/";  action = "<cmd>Telescope live_grep<CR>";   mode = ["n"]; desc = "Global search (helix <Space>/)"; silent = true; }
     ];
   };
 }
