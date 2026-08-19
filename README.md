@@ -150,6 +150,10 @@ nix fmt           # format all Nix files with alejandra
 mdbook serve docs # live-preview the documentation
 ```
 
+Conventions — branch prefixes, the PR-only workflow, module layout, and the
+hard-won nvf design decisions — live in [CLAUDE.md](CLAUDE.md). `AGENTS.md` is
+a symlink to it, so every coding agent reads the same file.
+
 ## License
 
 MIT — same as nvf upstream.
