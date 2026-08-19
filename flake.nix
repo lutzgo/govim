@@ -21,7 +21,7 @@
     nvf,
     systems,
   }: let
-    forEachSystem = f: nixpkgs.lib.genAttrs (import systems) (system: f system);
+    forEachSystem = f: nixpkgs.lib.genAttrs (import systems) f;
 
     # ------------------------------------------------------------------
     # Variants

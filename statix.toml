@@ -1,0 +1,15 @@
+# statix configuration.
+#
+# repeated_keys (W20) is disabled deliberately.
+#
+# nvf modules are written as flat option paths — `vim.luaConfigRC."org-export"`,
+# `vim.extraPlugins.oil-nvim`, `vim.languages.markdown.enable` — because that is
+# exactly how the options appear in the nvf manual. Reading a path here and
+# pasting it into <https://nvf.notashelf.dev/options.html> has to work.
+#
+# statix wants those collapsed into a single nested attrset per prefix. For
+# `modules/variants/default.nix` that means folding seven topic-named Lua blocks
+# (~270 lines) under one `luaConfigRC = { … }`, which buries the topic names an
+# indent level deeper and makes the diff of any future Lua change harder to
+# read. The flat form is the intentional style.
+disabled = ["repeated_keys"]
