@@ -40,17 +40,27 @@ let
   # pkgs.tree-sitter.buildGrammar compiles parser.c with the current tree-sitter
   # headers (0.25+) and produces an ABI-15 .so compatible with Neovim 0.12+.
   #
+  # The version MUST match `required_version` in the orgmode plugin's
+  # lua/orgmode/utils/treesitter/install.lua. orgmode's highlight and injection
+  # queries are written against exactly that grammar; a stale pin fails with
+  # "Query error … Invalid node type" the moment an org buffer opens (2.0.2 has
+  # no `fnref` node, which orgmode's highlights.scm now captures).
+  #
+  # To find the required version after an nvf bump:
+  #   grep required_version \
+  #     "$(nix build --no-link --print-out-paths .#default)"/../*/orgmode-*/lua/orgmode/utils/treesitter/install.lua
+  #
   # To update: nix-prefetch-url --unpack \
   #   https://github.com/nvim-orgmode/tree-sitter-org/archive/refs/tags/<ver>.tar.gz
-  # then: nix hash to-sri --type sha256 <result>
+  # then: nix hash convert --to sri --hash-algo sha256 <result>
   orgGrammarRaw = pkgs.tree-sitter.buildGrammar {
     language = "org";
-    version = "2.0.2";
+    version = "2.0.4";
     src = pkgs.fetchFromGitHub {
       owner = "nvim-orgmode";
       repo = "tree-sitter-org";
-      rev = "2.0.2";
-      hash = "sha256-tChVcd4YDA9Sec2r/QLhsoNENOTS2Tjr6jsBR1VFHOc=";
+      rev = "2.0.4";
+      hash = "sha256-76ImC8GMW+yAKG++AHryUi+MYTmtJ5ogygC+bgNMErA=";
     };
   };
 
