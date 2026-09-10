@@ -233,7 +233,7 @@ server or starts one in a vertical split.
 | `<leader>ae` | n, x | Explain `@this` |
 | `<leader>ar` | n, x | Review `@this` |
 | `<leader>af` | n, x | Fix `@diagnostics` |
-| `<leader>ad` | n, x | Review the git diff (`@diff`) |
+| `<leader>ad` | n | Review the git diff (`@diff`) — refuses if over the context budget |
 | `<leader>aT` | n, x | Add tests for `@this` |
 | `<leader>ab` | n, x | Explain `@buffer` |
 
@@ -259,5 +259,32 @@ conventional-commit message for the current diff).
 `modules/assistant/opencode.nix` re-registers it (`git --no-pager diff`), since
 "review what I am about to commit" is the main reason to ask a local model
 anything.
+
+### Context budget
+
+`vim.g.opencode_context_budget_tokens` caps how much context this config will
+inject. **It defaults to 1000 — deliberately small, sized for the smallest
+window in the fleet** (miralda: ollama, 4096 total).
+
+The reason is clanarchy's standing note SN1: an over-long prompt to ollama does
+not fail, it returns HTTP 200 with a truncated head and a fabricated answer. A
+review of a diff the model only half-saw looks exactly like a real one, so this
+refuses instead — naming both numbers.
+
+Raise it per host where the window allows:
+
+```nix
+# jens: 32768-token window via llama-swap, so 8000 leaves ample room
+programs.nvf.settings.vim.globals.opencode_context_budget_tokens = 8000;
+```
+
+`<leader>ad` checks the budget locally and refuses before sending. The `@diff`
+context is the backstop for the palette's **commit** prompt, which cannot be
+wrapped: over budget, it substitutes an explicit marker telling the model the
+diff was withheld — never `nil` (which would leave "review this diff:" followed
+by nothing, and invite the model to invent one) and never a truncation.
+
+Only `@diff` is gated today. `@buffer` and `@buffers` on a large file carry the
+same hazard and are not yet checked.
 
 > opencode reads referenced files from disk. Save before you ask.
