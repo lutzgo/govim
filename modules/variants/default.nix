@@ -10,6 +10,13 @@
   # All use plain mkDerivation (cp -r source → $out) to bypass nixpkgs's
   # buildVimPlugin neovim-require-check hook, which fails when a plugin
   # imports another plugin at load-time (e.g. telescope, orgmode).
+  #
+  # EVERY rev BELOW IS A COMMIT, NEVER A BRANCH NAME. These were all `rev =
+  # "main"`, which is not a pin at all: fetchFromGitHub re-resolves the ref, so
+  # an upstream push changes the fetched tarball and fails the fixed-output
+  # hash. That is exactly how org-super-agenda broke `nix build .#default` —
+  # no commit here touched it, and the build stopped working anyway. When
+  # bumping one, move the rev and the hash together.
   # telescope-orgmode.nvim: fuzzy search over org headings/files.
   # refile_heading.lua uses orgmode.parser.files (removed in newer orgmode);
   # we strip that export so only search_headings is exposed.
@@ -19,7 +26,7 @@
     src = pkgs.fetchFromGitHub {
       owner = "joaomsa";
       repo = "telescope-orgmode.nvim";
-      rev = "main";
+      rev = "eabff061c3852a9aa94e672a7d2fa4a1ef63f9e2";
       hash = "sha256-/sW4vfBbyurAQBgO0guU8BALB/KN9LYwhMBG8+EEuQo=";
     };
     installPhase = ''
@@ -39,7 +46,7 @@
     src = pkgs.fetchFromGitHub {
       owner = "nvim-orgmode";
       repo = "org-bullets.nvim";
-      rev = "main";
+      rev = "503fe053550879cc202086a40454e46a87c41ddb";
       hash = "sha256-Tgeqr/Zd1hJXXaln4XWGS5aZqypnpfNxgO/+pQVk7jg=";
     };
     installPhase = ''
@@ -52,12 +59,12 @@
   # org-super-agenda.nvim: group agenda items by tag, priority, date, etc.
   org-super-agenda = pkgs.stdenv.mkDerivation {
     pname = "org-super-agenda-nvim";
-    version = "unstable-2025";
+    version = "unstable-2026-09-10";
     src = pkgs.fetchFromGitHub {
       owner = "hamidi-dev";
       repo = "org-super-agenda.nvim";
-      rev = "main";
-      hash = "sha256-4O7wyPoYFtGLi/TYy9U6kildyr+RCpUsqb0vr4Aovw4=";
+      rev = "a76b1ca965c019f74786a94be6c142fbb84b7719";
+      hash = "sha256-dBKG6TQ9Fd/jZGk0j4DQEHoF29VjpUT0gpAIDDJ/E8k=";
     };
     installPhase = ''
       runHook preInstall
@@ -73,7 +80,7 @@
     src = pkgs.fetchFromGitHub {
       owner = "danilshvalov";
       repo = "org-modern.nvim";
-      rev = "main";
+      rev = "c024900b7ee78a0274036025569b47001ef3e6aa";
       hash = "sha256-TYs3g5CZDVXCFXuYaj3IriJ4qlIOxQgArVOzT7pqkqs=";
     };
     installPhase = ''
@@ -94,6 +101,7 @@ in {
     ../languages/go.nix
     ../languages/org.nix
     ../languages/typst.nix
+    ../assistant/opencode.nix
   ];
 
   vim = {
