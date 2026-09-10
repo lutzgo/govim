@@ -217,6 +217,27 @@ edit `roles.opencode.machines.<host>.settings.model` there, not govim.
 You do not need to start anything: the first prompt connects to a running
 server or starts one in a vertical split.
 
+### If a keymap errors instead of doing anything
+
+Run `:checkhealth opencode` — it validates everything below and is the fastest
+way to tell a config problem from a plugin one.
+
+The plugin **rediscovers** its server on every call rather than remembering one
+it started: `pgrep -f 'opencode.*--port'` to find the process, `lsof` to learn
+which port it listens on, `curl` for the HTTP request. So it needs `opencode`,
+`pgrep`, `lsof` and `curl` on nvim's `$PATH` (plus `git` for `@diff`). All five
+are declared in `modules/assistant/opencode.nix`; `lsof` especially is not
+installed by default on NixOS, and without it every keymap raises `ENOENT` out
+of `server/discovery/process/unix.lua` even while opencode itself runs fine.
+
+> **Version skew is possible and `extraPackages` cannot fix it.** nvf *appends*
+> to `$PATH` (mnw does `PATH = PATH .. ":" .. extraBinPath`), so a system-wide
+> opencode always wins over the one govim bundles. On a clanarchy host that is
+> the copy in `environment.systemPackages`, built from clan-core's pin rather
+> than nixpkgs-unstable — measured 1.15.10 on miralda against the 1.17.4 the
+> plugin lists as latest-tested. `:checkhealth opencode` reports the mismatch.
+> Fix it by bumping opencode in clanarchy, not here.
+
 ### Ask and select
 
 | Key | Mode | Action |
