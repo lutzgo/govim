@@ -199,3 +199,65 @@ Output files land next to the source `.org` file.
 | `,rb` | Toggle roam backlinks panel |
 | `,ri` | Insert roam node link |
 | `,il` | Insert file link (telescope picker) |
+
+---
+
+## AI assistant — opencode (`<leader>a`)
+
+Default variant only. `<leader>a*` drives
+[opencode.nvim](https://github.com/nickjvandyke/opencode.nvim), which talks to a
+local `opencode` server over HTTP.
+
+**The model is not configured here.** opencode reads
+`~/.config/opencode/config.json`, which clanarchy writes per host
+(`service-modules/local-ai.nix`, `roles.opencode`) — on jens that is ernst's
+llama-swap over an SSH forward, on miralda its own ollama. To change the model,
+edit `roles.opencode.machines.<host>.settings.model` there, not govim.
+
+You do not need to start anything: the first prompt connects to a running
+server or starts one in a vertical split.
+
+### Ask and select
+
+| Key | Mode | Action |
+|-----|------|--------|
+| `<leader>aa` | n, x | Ask about `@this` — selection in visual, cursor position in normal |
+| `<leader>aA` | n, x | Ask with no context attached |
+| `<leader>ap` | n | Palette: prompt library, session commands, server connect/start |
+| `<leader>at` | n | Focus the opencode terminal, starting one only if none exists |
+
+### Prompts
+
+| Key | Mode | Action |
+|-----|------|--------|
+| `<leader>ae` | n, x | Explain `@this` |
+| `<leader>ar` | n, x | Review `@this` |
+| `<leader>af` | n, x | Fix `@diagnostics` |
+| `<leader>ad` | n, x | Review the git diff (`@diff`) |
+| `<leader>aT` | n, x | Add tests for `@this` |
+| `<leader>ab` | n, x | Explain `@buffer` |
+
+Two extra prompts live in the `<leader>ap` palette rather than on a key: **nix**
+(review as Nix, flagging impurities and unpinned inputs) and **commit** (write a
+conventional-commit message for the current diff).
+
+### Session
+
+| Key | Action |
+|-----|--------|
+| `<leader>an` | New session |
+| `<leader>aS` | Select session |
+| `<leader>ac` | Compact session (shrink context) |
+| `<leader>ai` | Interrupt |
+| `<leader>au` | Undo last agent edit |
+| `<leader>aR` | Redo |
+
+### Contexts
+
+`@this`, `@buffer`, `@buffers`, `@diagnostics`, `@marks`, `@quickfix`,
+`@visible` are built in. `@diff` is **not** — upstream removed it in 0.13.0 and
+`modules/assistant/opencode.nix` re-registers it (`git --no-pager diff`), since
+"review what I am about to commit" is the main reason to ask a local model
+anything.
+
+> opencode reads referenced files from disk. Save before you ask.

@@ -21,6 +21,19 @@
 #
 # To change which model the editor uses, edit clanarchy's
 # `roles.opencode.machines.<host>.settings.model` — not this file.
+#
+# ── VERSION CONTRACT ─────────────────────────────────────────────────────
+#
+# Written against opencode.nvim 0.14.0. Its API is small and it breaks often;
+# re-check these on every nixpkgs bump, because none of them fail at eval:
+#
+#   * The public API is exactly `ask(default)`, `select(opts)`, `prompt(str)`,
+#     `command(str)`, `operator(str)`, `statusline`, `format`. There is NO
+#     `toggle()`/`start()`/`stop()` — 0.13.3 removed the last of them, so a
+#     keymap calling one is a nil-call at press time, not a build failure.
+#   * `@diff` was REMOVED as a built-in context in 0.13.0 and is re-added
+#     below, deliberately.
+#   * `opts.events.reload` became a table in 0.14.0 (`reload.enabled`).
 {
   pkgs,
   lib,
@@ -29,26 +42,28 @@
   vim = {
     # The opencode CLI itself, on nvim's PATH.
     #
-    # BUNDLED HERE DELIBERATELY, even though clanarchy also puts opencode in
-    # `environment.systemPackages`. opencode.nvim speaks opencode's server API,
-    # which is versioned with the CLI, so the plugin and the binary have to come
-    # from one nixpkgs or a system-level opencode bump can silently desync the
-    # pair. nvf's wrapper puts extraPackages ahead of the system PATH, so this
-    # is the one nvim resolves; the systemPackages copy stays for shell use.
+    # BUNDLED DELIBERATELY even though clanarchy also puts opencode in
+    # `environment.systemPackages`: opencode.nvim speaks the opencode server's
+    # HTTP API, which is versioned with the CLI, so the plugin and the binary
+    # want to come from one nixpkgs. Note this does NOT currently win over the
+    # system copy — nvf appends extraPackages to PATH rather than prepending,
+    # so on a clanarchy host `exepath('opencode')` still resolves to
+    # /run/current-system/sw/bin/opencode. It matters only as the fallback that
+    # keeps `nix run .#default` working on a host with no opencode installed.
     extraPackages = [pkgs.opencode];
 
-    # Required by opencode.nvim's `events.reload`: opencode edits files on disk
-    # behind nvim's back, and without autoread the buffer keeps showing stale
-    # text until it is manually reloaded.
-    options.autoread = true;
+    # `vim.o.autoread` is NOT set here on purpose: 0.14.0 sets it itself when
+    # `events.reload.enabled` and the user has not set it (it checks
+    # nvim_get_option_info2().was_set). Setting it here would only pre-empt
+    # that with the identical value while looking like a second opinion.
 
     # opencode.nvim is configured through a global rather than a setup() call
     # (see the header of its lua/opencode/config.lua), which maps straight onto
     # vim.globals — there is no setup Lua to write.
     #
-    # Only plain data is set here. The defaults for `server.start/stop/toggle`
-    # are Lua *functions* that open the agent in a 35%-wide right split; they
-    # cannot be expressed in Nix and are deliberately left untouched.
+    # Only plain data goes here. `server.start` and the `contexts` entries are
+    # Lua *functions*, which Nix cannot express; the ones this config changes
+    # are set in luaConfigRC below instead.
     globals.opencode_opts = {
       # Extra prompts on top of the built-in set (explain/fix/review/test/…).
       # tbl_deep_extend merges, so the shipped prompts all survive.
@@ -62,9 +77,9 @@
 
     extraPlugins.opencode-nvim = {
       package = pkgs.vimPlugins.opencode-nvim;
-      # `ask()` uses snacks.input and `select()` uses vim.ui.select; both are
-      # already live by the time a keymap can fire, and the plugin reads
-      # vim.g.opencode_opts lazily on first require. Nothing to run at startup.
+      # No setup() call exists; config is the global above. The plugin's own
+      # plugin/ files (highlight links, event handlers) are sourced by the
+      # runtime, so there is nothing to run here.
       setup = "";
       # snacks.input being *enabled* is what makes ask() render as a float
       # instead of the bare cmdline prompt — opencode.nvim checks
@@ -72,11 +87,64 @@
       after = ["snacks-nvim"];
     };
 
+    # ── @diff, restored ───────────────────────────────────────────────────
+    #
+    # 0.13.0 dropped the built-in `@diff` context. It is the single most useful
+    # one here — "review what I am about to commit" is the main reason to ask a
+    # local model anything — so it is re-registered, with the same
+    # implementation the plugin used to ship (`git --no-pager diff`, nil when
+    # not a repo or the diff is empty, so the placeholder drops out cleanly).
+    #
+    # Set on `config.opts` rather than via vim.globals because a context is a
+    # function. Safe to do at startup: the plugin's own plugin/ files already
+    # load it, so this require costs nothing extra.
+    luaConfigRC."opencode-diff-context" = lib.nvim.dag.entryAnywhere ''
+      local ok, oc_config = pcall(require, 'opencode.config')
+      if ok then
+        oc_config.opts.contexts['@diff'] = function()
+          local result = vim.system({ 'git', '--no-pager', 'diff' }, { text = true }):wait()
+          -- 129 is git's "not a repository"; anything else non-zero is a real
+          -- failure worth surfacing rather than silently sending an empty diff.
+          if result.code == 129 then return nil end
+          if result.code ~= 0 then
+            vim.notify('opencode @diff: git diff failed', vim.log.levels.WARN)
+            return nil
+          end
+          if result.stdout == "" then return nil end
+          return result.stdout
+        end
+      end
+    '';
+
+    # ── Showing the agent's terminal ──────────────────────────────────────
+    #
+    # There is no toggle() in the API any more, and the server is started for
+    # you on first use (`server.connect`/`server.start`), which opens
+    # `vsplit term://opencode --port`. What is missing is a way back to that
+    # window once you have moved off it, so this focuses the existing opencode
+    # terminal if there is one and only starts a server when there is not —
+    # blindly re-running server.start would leave a second agent running.
+    luaConfigRC."opencode-terminal" = lib.nvim.dag.entryAnywhere ''
+      function _G.opencode_focus()
+        for _, win in ipairs(vim.api.nvim_list_wins()) do
+          local name = vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(win))
+          if name:match('^term://.*opencode') then
+            vim.api.nvim_set_current_win(win)
+            return
+          end
+        end
+        local ok, oc_config = pcall(require, 'opencode.config')
+        if ok and type(oc_config.opts.server.start) == 'function' then
+          oc_config.opts.server.start()
+        end
+      end
+    '';
+
     # ── Keymaps (<leader>a*) ──────────────────────────────────────────────
     #
     # NOT the upstream README's <C-a>/<C-x>, which take over increment and
-    # decrement — bindings this config has no business stealing. <leader>a is
-    # free in the namespace table in docs/src/reference/keybindings.md.
+    # decrement — bindings this config has no business stealing. <leader>a was
+    # free in CLAUDE.md's namespace table and is now claimed there.
     #
     # The n+x pairs matter: `@this` resolves to the visual selection in x mode
     # and to the cursor position in n mode, so one binding covers both.
@@ -94,18 +162,19 @@
         mode = ["n"];
         silent = true;
       };
-      # Session commands go through command(), not prompt().
+      # Session control goes through command(), which names an opencode TUI
+      # command rather than sending a prompt.
       cmd = key: c: desc: kn key "function() require('opencode').command('${c}') end" desc;
-      # Library prompts, submitted straight through rather than via the picker.
+      # Library prompts, sent directly rather than picked out of the palette.
       prompt = key: p: desc: ka key "function() require('opencode').prompt('${p}') end" desc;
     in [
-      # Ask, with the cursor position or selection attached.
-      (ka "<leader>aa" "function() require('opencode').ask('@this: ', { submit = true }) end" "Ask opencode about this")
-      # Empty ask: no context, for a plain question.
+      # ask() takes only a default string in 0.14.0 — it prefills the input and
+      # you hit <CR> to send. There is no submit option to pass.
+      (ka "<leader>aa" "function() require('opencode').ask('@this: ') end" "Ask opencode about this")
       (ka "<leader>aA" "function() require('opencode').ask() end" "Ask opencode (no context)")
-      # The prompt/command palette — the discoverable entry point.
-      (kn "<leader>ap" "function() require('opencode').select() end" "opencode: prompt palette")
-      (kn "<leader>at" "function() require('opencode').toggle() end" "opencode: toggle terminal")
+      # The palette: prompt library + session commands + server connect/start.
+      (kn "<leader>ap" "function() require('opencode').select() end" "opencode: palette")
+      (kn "<leader>at" "function() _G.opencode_focus() end" "opencode: focus/open terminal")
 
       # Library prompts worth a direct binding.
       (prompt "<leader>ae" "Explain @this and its context" "Explain this")
@@ -117,17 +186,16 @@
 
       # Session control.
       (cmd "<leader>an" "session.new" "Session: new")
-      (cmd "<leader>as" "session.select" "Session: select")
+      (cmd "<leader>aS" "session.select" "Session: select")
       (cmd "<leader>ac" "session.compact" "Session: compact (shrink context)")
       (cmd "<leader>ai" "session.interrupt" "Session: interrupt")
       (cmd "<leader>au" "session.undo" "Session: undo last edit")
       (cmd "<leader>aR" "session.redo" "Session: redo")
     ];
 
-    # which-key labels for the group and its sub-behaviour. Registered the same
-    # way as the org groups in variants/default.nix, and guarded with pcall for
-    # the same reason: which-key is a common.nix plugin, not a hard dependency
-    # of this file.
+    # which-key labels for the group. Registered the same way as the org groups
+    # in variants/default.nix, and guarded with pcall for the same reason:
+    # which-key is a common.nix plugin, not a hard dependency of this file.
     luaConfigRC."opencode-whichkey" = lib.nvim.dag.entryAnywhere ''
       local ok, wk = pcall(require, 'which-key')
       if ok then
