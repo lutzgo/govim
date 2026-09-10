@@ -120,19 +120,35 @@
     # function. Safe to do at startup: the plugin's own plugin/ files already
     # load it, so this require costs nothing extra.
     #
-    # Both the context and the keymap below go through _G.opencode_git_diff so
-    # there is ONE size check. The keymap refuses before spending a round trip;
-    # the context is the backstop that also covers the `commit` prompt in the
-    # <leader>ap palette, which this config cannot wrap.
+    # The keymap and the context share _G.opencode_git_diff so there is ONE
+    # notion of size. The keymap refuses before spending a round trip; the
+    # generic wrapper below is the backstop that also covers the `commit` prompt
+    # in the <leader>ap palette, which this config cannot wrap.
     luaConfigRC."opencode-diff-context" = lib.nvim.dag.entryAnywhere ''
-      -- 3 bytes/token is deliberately pessimistic for diffs and code — the real
-      -- ratio is nearer 3.5–4 — so the estimate errs toward refusing.
+      -- ── The token estimate ──────────────────────────────────────────────
+      --
+      -- MEASURED, not guessed. Against ollama's own tokeniser on miralda
+      -- (qwen2.5-coder:7b, via prompt_eval_count on /api/generate), 11411
+      -- bytes of git log -p came to 3139 real tokens — 3.64 bytes/token. So
+      -- dividing by 3 overestimates the token count by ~21%, which is the
+      -- direction this needs to err: it refuses slightly too eagerly rather
+      -- than letting something through that then gets silently truncated.
+      --
+      -- NO REAL TOKENISER IS USED, deliberately. ollama exposes none (both
+      -- /api/tokenize and /tokenize are 404, measured 2026-09-10). llama.cpp
+      -- does expose /tokenize, so jens could count exactly — but miralda then
+      -- needs this fallback anyway, a per-invocation HTTP round trip buys
+      -- ~20% precision on a refusal threshold, and on llama-swap it can wake a
+      -- swapped-out model to answer. Not worth it. Raise the budget if the
+      -- estimate is too tight; do not make the editor phone the GPU to decide.
       local function estimate_tokens(s) return math.ceil(#s / 3) end
+
+      local function budget_tokens() return vim.g.opencode_context_budget_tokens or 1000 end
 
       ---Returns: diff|nil, est_tokens, budget, status
       ---status is one of 'ok' | 'toobig' | 'empty' | 'notrepo' | 'error'
       function _G.opencode_git_diff()
-        local budget = vim.g.opencode_context_budget_tokens or 1000
+        local budget = budget_tokens()
         local result = vim.system({ 'git', '--no-pager', 'diff' }, { text = true }):wait()
         -- 129 is git's "not a repository"; anything else non-zero is a real
         -- failure worth surfacing rather than silently sending an empty diff.
@@ -146,31 +162,63 @@
 
       local ok, oc_config = pcall(require, 'opencode.config')
       if ok then
+        -- @diff returns the raw diff; the wrapper below owns the size policy,
+        -- so there is exactly one place that decides what "too big" means.
         oc_config.opts.contexts['@diff'] = function()
-          local diff, est, budget, status = _G.opencode_git_diff()
-          if status == 'notrepo' or status == 'empty' then return nil end
+          local diff, _, _, status = _G.opencode_git_diff()
           if status == 'error' then
             vim.notify('opencode @diff: git diff failed', vim.log.levels.WARN)
             return nil
           end
-          if status == 'toobig' then
+          return diff
+        end
+
+        -- ── Every context is budgeted, not just @diff ──────────────────────
+        --
+        -- WHICH CONTEXTS CAN BLOW THE WINDOW IS NOT OBVIOUS, and guessing got
+        -- it wrong once. Context.format returns a *location* ("path:L1-L40")
+        -- for any buffer backed by a file on disk — a large saved file costs
+        -- ~100 bytes, because opencode reads it server-side. But for a buffer
+        -- whose file does NOT exist yet it returns the LITERAL TEXT inline
+        -- (see its `if not filestat or filestat.type ~= "file"` branch).
+        -- Measured: a 3000-line unsaved buffer yielded 124892 bytes from
+        -- @buffer, against 104 for the same content saved.
+        --
+        -- So the hazard is not "big file", it is "not on disk yet" — which
+        -- means @this, @buffer, @buffers and @visible all carry it, and any
+        -- context added upstream later might too. Wrapping every entry and
+        -- judging the STRING THAT COMES BACK is the only version of this that
+        -- cannot be out-of-date: a location reference is tiny and always
+        -- passes, inlined text gets checked.
+        local names = vim.tbl_keys(oc_config.opts.contexts)
+        for _, name in ipairs(names) do
+          local inner = oc_config.opts.contexts[name]
+          oc_config.opts.contexts[name] = function(ctx)
+            local got_ok, out = pcall(inner, ctx)
+            if not got_ok then
+              vim.notify('opencode: context ' .. name .. ' failed', vim.log.levels.WARN)
+              return nil
+            end
+            -- nil/empty means "nothing to say" — let the placeholder drop.
+            if out == nil or out == "" then return nil end
+            local est, budget = estimate_tokens(out), budget_tokens()
+            if est <= budget then return out end
             vim.notify(
               string.format(
-                'opencode: @diff withheld — ~%d tokens exceeds the %d-token budget.',
-                est, budget),
+                'opencode: %s withheld — ~%d tokens exceeds the %d-token budget.',
+                name, est, budget),
               vim.log.levels.ERROR)
             -- A MARKER, NOT nil AND NOT A TRUNCATION. Returning nil would drop
             -- the placeholder and leave "review the following diff:" with
-            -- nothing after it — the model then invents a diff to review, which
-            -- is the exact failure this guard exists to prevent. Saying so
-            -- in-band makes it answer honestly instead.
+            -- nothing after it — the model then invents something to review,
+            -- which is the exact failure this guard exists to prevent. Saying
+            -- so in-band makes it answer honestly instead.
             return string.format(
-              '[The editor withheld this diff: ~%d estimated tokens exceeds the %d-token '
-              .. 'context budget. Do NOT guess at its contents. Reply only that the diff '
-              .. 'was too large to send, and suggest reviewing a subset.]',
-              est, budget)
+              '[The editor withheld %s: ~%d estimated tokens exceeds the %d-token '
+              .. 'context budget. Do NOT guess at its contents. Reply only that it '
+              .. 'was too large to send, and suggest a smaller scope.]',
+              name, est, budget)
           end
-          return diff
         end
       end
 

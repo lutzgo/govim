@@ -278,13 +278,35 @@ Raise it per host where the window allows:
 programs.nvf.settings.vim.globals.opencode_context_budget_tokens = 8000;
 ```
 
-`<leader>ad` checks the budget locally and refuses before sending. The `@diff`
-context is the backstop for the palette's **commit** prompt, which cannot be
-wrapped: over budget, it substitutes an explicit marker telling the model the
-diff was withheld — never `nil` (which would leave "review this diff:" followed
-by nothing, and invite the model to invent one) and never a truncation.
+`<leader>ad` checks the budget locally and refuses before sending. **Every
+context** is also wrapped, which is the backstop for the palette's **commit**
+prompt and anything else this config cannot intercept: over budget, the wrapper
+substitutes an explicit marker telling the model the content was withheld —
+never `nil` (which would leave "review this diff:" followed by nothing, and
+invite the model to invent one) and never a truncation.
 
-Only `@diff` is gated today. `@buffer` and `@buffers` on a large file carry the
-same hazard and are not yet checked.
+Which contexts can overrun is not obvious. `Context.format` returns a *location*
+(`path:L1-L40`) for any buffer backed by a file on disk, so a large **saved**
+file costs ~100 bytes — opencode reads it server-side. But for a buffer whose
+file does not exist yet it returns the **literal text inline**. Measured: a
+3000-line unsaved buffer produced 124,892 bytes from `@buffer`, versus 104 for
+the same content saved. So the hazard is not "big file", it is "not on disk
+yet" — which `@this`, `@buffer`, `@buffers` and `@visible` all share. The
+wrapper judges the string that comes back rather than the context's name, so a
+location reference always passes and inlined text always gets checked.
+
+### Why the estimate is not a real token count
+
+`bytes / 3`, and deliberately so. Measured against ollama's own tokeniser on
+miralda (`qwen2.5-coder:7b`, via `prompt_eval_count`): 11,411 bytes of
+`git log -p` came to 3,139 real tokens — **3.64 bytes/token**. Dividing by 3
+therefore overestimates by ~21%, erring toward refusing.
+
+No real tokeniser is called. ollama exposes none (`/api/tokenize` and
+`/tokenize` both 404, measured 2026-09-10). llama.cpp does, so jens could count
+exactly — but miralda would need this fallback regardless, a per-invocation HTTP
+round trip buys ~20% precision on a refusal threshold, and on llama-swap it can
+wake a swapped-out model to answer. Raise the budget if the estimate is too
+tight rather than making the editor phone the GPU to decide.
 
 > opencode reads referenced files from disk. Save before you ask.
