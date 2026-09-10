@@ -133,6 +133,7 @@ contract — do not squat on one without checking:
 | `<leader>s*` | Search-replace + sessions |
 | `<leader>b*` | Buffers |
 | `<leader>o*` | Org / PKM (see below) |
+| `<leader>a*` | AI assistant (opencode) — `default` variant only |
 | `<leader>e`  | File explorer (oil float) |
 | `,` (localleader) | Buffer-local org actions in `org` buffers |
 
