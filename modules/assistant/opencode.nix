@@ -50,7 +50,29 @@
     # so on a clanarchy host `exepath('opencode')` still resolves to
     # /run/current-system/sw/bin/opencode. It matters only as the fallback that
     # keeps `nix run .#default` working on a host with no opencode installed.
-    extraPackages = [pkgs.opencode];
+    #
+    # THE OTHER FOUR ARE NOT OPTIONAL, and shipping only opencode was a real
+    # bug: pressing any keymap raised `ENOENT` out of
+    # opencode/server/discovery/process/unix.lua. The plugin does not talk to a
+    # server it started and remembered — it *rediscovers* one every time, by
+    # shelling out to `pgrep -f 'opencode.*--port'` and then `lsof` to learn
+    # which port that PID listens on, and it uses `curl` for the HTTP calls.
+    # `lsof` in particular is not installed by default on NixOS, so discovery
+    # failed on a host where opencode itself was running fine.
+    #
+    # git is for the @diff context below. All five are declared rather than
+    # assumed: a module that shells out to a binary should carry it, not hope
+    # the host's profile has it.
+    #
+    # `:checkhealth opencode` verifies exactly this list — run it after any
+    # change here, because none of these fail at build time.
+    extraPackages = [
+      pkgs.opencode
+      pkgs.lsof
+      pkgs.procps # pgrep
+      pkgs.curl
+      pkgs.git
+    ];
 
     # `vim.o.autoread` is NOT set here on purpose: 0.14.0 sets it itself when
     # `events.reload.enabled` and the user has not set it (it checks
