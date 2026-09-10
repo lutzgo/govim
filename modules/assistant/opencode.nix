@@ -75,6 +75,27 @@
       };
     };
 
+    # ── Context budget ────────────────────────────────────────────────────
+    #
+    # Ceiling, in tokens, on context this config injects into a prompt. Nothing
+    # in the stack enforces one otherwise, and overrunning it is not a loud
+    # failure: an over-long prompt to ollama comes back HTTP 200 with a
+    # truncated head and a confidently fabricated answer. That is clanarchy's
+    # standing note SN1, and a review of a diff the model never fully saw is
+    # the worst possible output — it looks exactly like a real one.
+    #
+    # THE DEFAULT IS DELIBERATELY SMALL — it fails closed. 1000 tokens is sized
+    # for the smallest window in the fleet (miralda: ollama, 4096 total, which
+    # the opencode system prompt and tool definitions have already eaten into).
+    # A host with a bigger window should raise it rather than inherit a value
+    # that silently suits nobody:
+    #
+    #   programs.nvf.settings.vim.globals.opencode_context_budget_tokens = 8000;
+    #
+    # jens has 32768 (llama-swap, see clanarchy roles.models), so 8000 leaves
+    # ample room for the system prompt, the tools and the reply.
+    globals.opencode_context_budget_tokens = 1000;
+
     extraPlugins.opencode-nvim = {
       package = pkgs.vimPlugins.opencode-nvim;
       # No setup() call exists; config is the global above. The plugin's own
@@ -98,21 +119,86 @@
     # Set on `config.opts` rather than via vim.globals because a context is a
     # function. Safe to do at startup: the plugin's own plugin/ files already
     # load it, so this require costs nothing extra.
+    #
+    # Both the context and the keymap below go through _G.opencode_git_diff so
+    # there is ONE size check. The keymap refuses before spending a round trip;
+    # the context is the backstop that also covers the `commit` prompt in the
+    # <leader>ap palette, which this config cannot wrap.
     luaConfigRC."opencode-diff-context" = lib.nvim.dag.entryAnywhere ''
+      -- 3 bytes/token is deliberately pessimistic for diffs and code — the real
+      -- ratio is nearer 3.5–4 — so the estimate errs toward refusing.
+      local function estimate_tokens(s) return math.ceil(#s / 3) end
+
+      ---Returns: diff|nil, est_tokens, budget, status
+      ---status is one of 'ok' | 'toobig' | 'empty' | 'notrepo' | 'error'
+      function _G.opencode_git_diff()
+        local budget = vim.g.opencode_context_budget_tokens or 1000
+        local result = vim.system({ 'git', '--no-pager', 'diff' }, { text = true }):wait()
+        -- 129 is git's "not a repository"; anything else non-zero is a real
+        -- failure worth surfacing rather than silently sending an empty diff.
+        if result.code == 129 then return nil, 0, budget, 'notrepo' end
+        if result.code ~= 0 then return nil, 0, budget, 'error' end
+        if result.stdout == "" then return nil, 0, budget, 'empty' end
+        local est = estimate_tokens(result.stdout)
+        if est > budget then return result.stdout, est, budget, 'toobig' end
+        return result.stdout, est, budget, 'ok'
+      end
+
       local ok, oc_config = pcall(require, 'opencode.config')
       if ok then
         oc_config.opts.contexts['@diff'] = function()
-          local result = vim.system({ 'git', '--no-pager', 'diff' }, { text = true }):wait()
-          -- 129 is git's "not a repository"; anything else non-zero is a real
-          -- failure worth surfacing rather than silently sending an empty diff.
-          if result.code == 129 then return nil end
-          if result.code ~= 0 then
+          local diff, est, budget, status = _G.opencode_git_diff()
+          if status == 'notrepo' or status == 'empty' then return nil end
+          if status == 'error' then
             vim.notify('opencode @diff: git diff failed', vim.log.levels.WARN)
             return nil
           end
-          if result.stdout == "" then return nil end
-          return result.stdout
+          if status == 'toobig' then
+            vim.notify(
+              string.format(
+                'opencode: @diff withheld — ~%d tokens exceeds the %d-token budget.',
+                est, budget),
+              vim.log.levels.ERROR)
+            -- A MARKER, NOT nil AND NOT A TRUNCATION. Returning nil would drop
+            -- the placeholder and leave "review the following diff:" with
+            -- nothing after it — the model then invents a diff to review, which
+            -- is the exact failure this guard exists to prevent. Saying so
+            -- in-band makes it answer honestly instead.
+            return string.format(
+              '[The editor withheld this diff: ~%d estimated tokens exceeds the %d-token '
+              .. 'context budget. Do NOT guess at its contents. Reply only that the diff '
+              .. 'was too large to send, and suggest reviewing a subset.]',
+              est, budget)
+          end
+          return diff
         end
+      end
+
+      -- <leader>ad's entry point: decide locally, before any request is made.
+      -- Every branch says which numbers it saw, because "it refused and I don't
+      -- know why" is only marginally better than a fabricated review.
+      function _G.opencode_review_diff()
+        local _, est, budget, status = _G.opencode_git_diff()
+        if status == 'notrepo' then
+          vim.notify('opencode: not a git repository', vim.log.levels.WARN)
+          return
+        elseif status == 'error' then
+          vim.notify('opencode: git diff failed', vim.log.levels.ERROR)
+          return
+        elseif status == 'empty' then
+          vim.notify('opencode: working tree is clean — nothing to review', vim.log.levels.INFO)
+          return
+        elseif status == 'toobig' then
+          vim.notify(
+            string.format(
+              'opencode: refusing to send — diff is ~%d tokens, budget is %d.\n'
+              .. 'Review a subset (a path, or staged changes only), or raise\n'
+              .. 'vim.g.opencode_context_budget_tokens if the model window allows.',
+              est, budget),
+            vim.log.levels.ERROR)
+          return
+        end
+        require('opencode').prompt('Review the following git diff for correctness and readability: @diff')
       end
     '';
 
@@ -180,7 +266,9 @@
       (prompt "<leader>ae" "Explain @this and its context" "Explain this")
       (prompt "<leader>ar" "Review @this for correctness and readability" "Review this")
       (prompt "<leader>af" "Fix @diagnostics" "Fix diagnostics")
-      (prompt "<leader>ad" "Review the following git diff for correctness and readability: @diff" "Review git diff")
+      # Not `prompt` — this one checks the diff against the context budget and
+      # refuses locally rather than letting the model truncate it silently.
+      (kn "<leader>ad" "function() _G.opencode_review_diff() end" "Review git diff (budget-checked)")
       (prompt "<leader>aT" "Add tests for @this" "Add tests for this")
       (prompt "<leader>ab" "Explain @buffer" "Explain buffer")
 
